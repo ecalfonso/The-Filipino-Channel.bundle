@@ -1,0 +1,318 @@
+# General
+USER_AGENT      = 'AppleCoreMedia/1.0.0.11A501 (iPad; U; CPU OS 7_0_2 like Mac OS X; en_us)'
+
+# Resources
+ART      = 'art-default.jpg'
+ICON     = 'icon-default.png'
+
+# TFC URLs
+BASE_URL   = 'http://tfc.tv/Synapse'
+
+URL_LOGIN               = BASE_URL + '/Login?email={EMAIL}&pw={PASSWORD}'
+URL_GET_USER_DATA       = BASE_URL + '/GetUserData?{USER_ID}'
+URL_GET_SITE_MENU       = BASE_URL + '/GetSiteMenu'
+URL_GET_SHOWS           = BASE_URL + '/GetShows/{SUB_CAT_ID}'
+URL_GET_SHOW_DETAILS    = BASE_URL + '/GetShowDetails/{SHOW_ID}'
+URL_GET_EPISODE_DETAILS = BASE_URL + '/GetEpisodeDetails/{EPISODE_ID}'
+URL_GET_VIDEO           = BASE_URL + '/GetVideo/{VIDEO_ID}'
+
+# Consctructed URLs for URL service
+RE_PLEX_MOVIE_URL   = Regex( r"^tfctv://(?P<show_id>\d+)$" )
+RE_PLEX_EPISODE_URL = Regex( r"^tfctv://(?P<show_id>\d+)/(?P<episode_id>\d+)$" )
+
+# Regex for parsing m3u8 info
+RE_M3U8 = Regex( r"#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=(?P<bandwidth>\d+),RESOLUTION=(?P<width>\d+)x(?P<height>\d+),CODECS=\"(?P<codecs>[^\"]+\")\n(?P<url>https?://\S+)", Regex.MULTILINE )
+
+# Regex for getting URL domain name
+RE_DOMAIN = Regex(r"https?://(?P<domain>[^\/]+)")
+
+# Set default cache to 3 hours
+CACHE_TIME = 3 * CACHE_1HOUR # seconds
+
+# How does this one work???   AudioStreamObject.language_code = Locale.Language.English
+
+
+
+####################################################################################################
+def MetadataObjectForURL( url ):
+
+    Log.Debug('# ServiceCode **********  MetadataObjectForURL  ********** %s', url )
+
+    try:
+
+        m = RE_PLEX_MOVIE_URL.match( url )
+        if m:
+            Log.Debug('# **********  RE_PLEX_MOVIE_URL  ********** ' )
+            show_id    = m.group('show_id')
+            Log.Debug('# **********  RE_PLEX_MOVIE_URL  show_id = %s', show_id )
+
+            show = JSON.ObjectFromURL( URL_GET_SHOW_DETAILS.replace('{SHOW_ID}',str(show_id)), cacheTime = CACHE_TIME )
+
+            Log.Debug('# show JSON: %s #', show )
+
+            title                   = ExtractHtmlText( show, 'name'  )
+            summary                 = ExtractHtmlText( show, 'blurb' )
+            image                   = ExtractImageUrl( show, 'image' , fallback=R(ICON) )
+            art                     = ExtractImageUrl( show, 'banner', fallback=R(ART)  )
+            #duration                = Datetime.MillisecondsFromString(episode['episodelength'])
+            originally_available_at = Datetime.ParseDate(show['dateairedstr'])
+
+            Log.Debug('# RETURN MovieObject #' )
+
+            return( MovieObject(
+                             title                   = title,
+                             thumb                   = image,
+                             summary                 = summary,
+                             tagline                 = title,
+                             #duration                = duration,
+                             year                    = originally_available_at,
+                             art                     = art
+                           ))
+
+
+        m = RE_PLEX_EPISODE_URL.match( url )    
+        if m:
+
+            #Log.Debug('# **********  RE_PLEX_EPISODE_URL  ********** ' )
+            show_id    = m.group('show_id')
+            episode_id = m.group('episode_id')                     
+            #Log.Debug( '# RE_PLEX_EPISODE_URL: show_id + %s, episode_id = %s' % (str(show_id),str(episode_id)) )
+
+            episode = JSON.ObjectFromURL( URL_GET_EPISODE_DETAILS.replace('{EPISODE_ID}',str(episode_id)), cacheTime = CACHE_TIME )
+
+            #Log.Debug('# episode JSON: %s #', episode )
+
+            title                   = ExtractHtmlText( episode, 'name'     )
+            show                    = ExtractHtmlText( episode, 'show'     )
+            summary                 = ExtractHtmlText( episode, 'synopsis' )
+            #episode_id              = episode['id']
+            image                   = ExtractImageUrl( episode, 'image', fallback=R(ICON) )
+            #art                     = CleanImageURL(episode['banner'], fallback=R(ART))
+            #season                  = 1
+            #index                   = episode['episodenumber']
+            #duration                = Datetime.MillisecondsFromString(episode['episodelength'])
+            originally_available_at = Datetime.ParseDate(episode['dateaired'])
+
+            Log.Debug('# RETURN EpisodeObject #' )
+
+            return( EpisodeObject(
+                         title                   = title,
+                         thumb                   = image,
+                         summary                 = summary,
+                         show                    = show,
+                         #season                  = season,
+                         #index                   = index,
+                         #duration                = duration,
+                         originally_available_at = originally_available_at,
+                         #art                     = art
+                       ))
+
+    except:
+        Log.Debug( '******************************* MetadataObjectForURL FAILED ! *******************************' )
+        raise Ex.MediaNotAvailable
+
+    raise Ex.MediaNotAvailable
+
+
+####################################################################################################
+def MediaObjectsForURL(url):
+
+    Log.Debug( '******************************* MediaObjectsForURL *******************************' )
+    Log.Debug( "Client.Product: '%s', Client.Platform: '%s'" % (Client.Product,Client.Platform) )
+    return [
+		MediaObject(
+			parts = [ PartObject(key=HTTPLiveStreamURL(Callback(PlayVideo, url=url)))],
+            optimized_for_streaming = True,
+            audio_channels          = 2,
+            video_resolution        = 720
+            )
+        ]
+
+
+####################################################################################################
+@indirect
+def PlayVideo( url, **kwargs ):
+
+    try:
+
+        Log.Debug( '******************************* PlayVideo(%s) *******************************', url )
+
+        m = RE_PLEX_MOVIE_URL.match( url )
+        if m:
+            video_id = m.group('show_id')
+        else:
+            m = RE_PLEX_EPISODE_URL.match( url )
+            video_id = m.group('episode_id')
+
+        HTTP.Headers['User-Agent'] = USER_AGENT
+        HTTP.Headers['Cookie']     = GetCookies()
+        Log.Debug( '## UPDATED HTTP.Headers: %s ##', HTTP.Headers )
+
+        # Get the m3u8 playlist url
+        playlist_url = GetPlaylistURL( video_id )
+
+        # Always read the playlist to get the cookies!
+        streams = GetStreams( playlist_url )
+
+        # Extract and update cookies
+        cookies = HTTP.CookiesForURL( playlist_url )
+        Log.Debug( '## Cookies for playlist_url: %s ##', cookies )
+        domain = RE_DOMAIN.search(playlist_url).group('domain')
+
+        http_cookies = '%s; path=/; domain=%s;' % (cookies, domain)
+        Log.Debug( '## http_cookies for final url: %s ##', http_cookies )
+
+
+        if Client.Product =='Plex Web' and Client.Platform == 'Chrome':
+            #cb = PlayIndirect
+            get_stream = False # both true and false work but very low resolution in both cases
+        elif Client.Product == 'Plex Web' and Client.Platform == 'Safari':
+            #cb = PlayIndirect
+            get_stream = False # Art and the 'There was a problem playing this item.'
+            #get_stream = True # Art and the 'There was a problem playing this item.'
+            #  - There was a problem playing this item.
+        elif Client.Product == 'Plex for iOS' and Client.Platform == 'iOS':  # NOTE!  this line isn't caught!!! Therefor the last else sets 'get_stream = False'
+            #cb = PlayIndirect
+            get_stream = False # Works in hires
+            # get_stream = True # crash...
+        elif Client.Product == 'Plex Media Player' and Client.Platform == 'Konvergo':
+            #cb = PlayIndirect
+            # ffmpeg: http: HTTP error 403 Forbidden
+            get_stream = False # 'There was a problem playing this item.'  URL is changed by Plex!!!
+            #get_stream = True # 'There was a problem playing this item.'  NO URL at all!!!
+        else:
+            Log.Debug( "Unknown combination! Client.Product: '%s', Client.Platform: '%s'" % (Client.Product,Client.Platform) )
+            #cb = PlayIndirect
+            # It seems like this is the route taken by 'iOS' !!!!!
+            get_stream = False
+
+        Log.Debug( " *** Client.Product: '%s', Client.Platform: '%s'" % (Client.Product,Client.Platform) )
+        #Log.Debug( " *** cb = %s, get_stream = %s" % (("PlayDirect" if cb == PlayDirect else "PlayIndirect"),("True" if get_stream else "False")) )
+        Log.Debug( " *** cb = s, get_stream = %s" % (("True" if get_stream else "False")) )
+
+        if get_stream:
+            final_url = streams[-1]['url']
+        else:
+            final_url = playlist_url
+
+        Log.Debug( "**** PlayVideo: final_url = '%s' *******************************", final_url )
+
+        Log.Debug( "echo mplayer -cookies '%s' %s" % (http_cookies,final_url) )
+
+
+        # http_headers', 'user_agent', 'http_cookies
+
+
+        return IndirectResponse( VideoClipObject, key = HTTPLiveStreamURL(final_url), http_cookies=http_cookies )
+
+    except:
+        raise Ex.MediaNotAvailable
+
+    raise Ex.MediaNotAvailable
+
+
+####################################################################################################
+
+def PlayDirect( url, **kwargs ):
+    pass
+
+@indirect
+def PlayIndirect( url, **kwargs ):
+    pass
+
+
+####################################################################################################
+def GetStreams( playlist_url ):
+
+    #Log.Debug("###### GETSTREAMS url='%s',headers='%s' ########" % (playlist_url,headers) )
+
+    #   if "manifest.f4m" in playlist_url:
+    #       playlist_url = playlist_url.replace("/o1-f.akamaihd.net/z/", "/o1-i.akamaihd.net/i/" )
+    #       playlist_url = playlist_url.replace("manifest.f4m", "master.m3u8")
+    
+    playlist = HTTP.Request( url = playlist_url, cacheTime = 0 )
+    Log.Debug( '## USED HTTP.Headers: %s ##', HTTP.Headers )
+
+    Log.Debug('# ServiceCode ********** master.m3u8: %s *', playlist.content )
+
+    streams = []
+    for m in RE_M3U8.finditer( playlist.content ):
+        streams.append(m.groupdict())
+
+    return streams
+
+
+####################################################################################################
+def GetPlaylistURL( video_id ):
+
+    try:
+
+        #Log.Debug('####  GetPlaylistURL:  %s ', video_id )
+
+        mediaInfo = JSON.ObjectFromURL( URL_GET_VIDEO.replace('{VIDEO_ID}',str(video_id)), cacheTime = 0 )
+        #Log.Debug('@#$ JSON:  %s ', mediaInfo )
+
+        if mediaInfo['errorCode'] == 0:
+            return mediaInfo['data']['Url']
+
+        else:
+            Log.Error('### JSON ERROR: %s - %s ###', mediaInfo['errorCode'], mediaInfo['errorMessage'] )
+            raise Ex.MediaNotAvailable
+
+    except:
+        raise Ex.MediaNotAvailable
+
+    raise Ex.MediaNotAvailable
+
+
+
+####################################################################################################
+def GetCookies():
+                
+    try:
+    
+        if not ( Prefs['email'] and Prefs['password'] ) :
+            Log.Debug('# Missing prefs. #' )
+            raise Ex.MediaNotAvailable
+
+        json = JSON.ObjectFromURL( URL_LOGIN.replace('{EMAIL}', String.Quote(Prefs['email'])).replace('{PASSWORD}', String.Quote(Prefs['password'])), cacheTime = 0 )
+        if ( json['errorCode'] == 0 ):
+           cookies = HTTP.CookiesForURL( BASE_URL )
+           Log.Debug( '## COOKIES: %s ##', cookies )
+
+           return cookies
+        
+    except:
+        Log.Exception( '### Exception!' )        
+        
+    Log( '## Failed to login!: #' )
+    raise Ex.MediaNotAvailable
+
+
+
+####################################################################################################
+def ExtractHtmlText(dict, key, fallback=''):
+    try:
+        text = String.DecodeHTMLEntities( dict[key] ).strip()
+    except: 
+        text = fallback
+        Log.Debug("# Using fallback text: '%s' instead of json['%s'] #" % (fallback,key) )
+    #Log.Debug("# ExtractHtmlText: json['%s'] = '%s' #" % (key,text) )
+    return text
+
+
+####################################################################################################
+def ExtractImageUrl(dict, key, fallback):
+    try:
+        url = str(dict[key])
+        url = url.replace(r"http://","")
+        url = "http://" + String.Quote(url)
+        url = Resource.ContentsOfURLWithFallback( url, fallback=fallback )
+    except: 
+        url = fallback
+        Log.Debug("# Using fallback image: '%s' instead of json['%s'] #" % (fallback,key) )
+    #Log.Debug("# ExtractImageUrl: json['%s'] = '%s'#" % (key,url) )
+    return url
+
+        
+## EOF ##
