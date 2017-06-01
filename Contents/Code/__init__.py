@@ -5,7 +5,11 @@ DEBUG_STRUCTURE = False
 # General
 TITLE      = 'The Filipino Channel'
 PREFIX     = '/video/tfctv'
-USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/600.3.18 (KHTML, like Gecko) Version/8.0.3 Safari/600.3.18'
+#USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/600.3.18 (KHTML, like Gecko) Version/8.0.3 Safari/600.3.18'
+USER_AGENT = 'Mozilla/4,0'
+## HTTP.Headers['User-Agent']      = USER_AGENT
+## HTTP.Headers['Accept']          = '*/*'
+## HTTP.Headers['Accept-Encoding'] = 'deflate, gzip'
 
 # Resources
 ART      = 'art-default.jpg'
@@ -14,7 +18,8 @@ LOGO     = 'TFC-logo.jpg'
 MORE     = 'more.png'
 
 # TFC URLs
-BASE_URL   = 'http://tfc.tv/Synapse'
+#BASE_URL   = 'http://tfc.tv/Synapse'
+BASE_URL   = 'http://t2.tfc.tv/Synapse'
 
 URL_GET_SITE_MENU        = BASE_URL + '/GetSiteMenu'
 URL_GET_MOST_LOVED_SHOWS = BASE_URL + '/GetMostLovedShows'
@@ -34,6 +39,8 @@ MAX_NUM_EPISODES =  5
 CACHE_TIME = 3 * CACHE_1HOUR # seconds
 
 # URLs for testing TFC.tv
+#http://tfc.tv/Synapse/Login?email=ms1%40globalpost.se&pw=lokadm123
+#http://tfc.tv/Synapse/GetUserData?uid=c5c8a385-d366-45b6-914a-5a5cc875298b
 #http://tfc.tv/Synapse/GetSiteMenu
 #http://tfc.tv/Synapse/GetShowDetails/384
 #http://tfc.tv/Synapse/GetEpisodeDetails/121696
@@ -57,7 +64,10 @@ def Start( **kwargs ):
 
     HTTP.CacheTime = 3 * CACHE_TIME
 
-    HTTP.Headers['User-Agent'] = USER_AGENT
+    HTTP.Headers['User-Agent']      = USER_AGENT
+    HTTP.Headers['Accept']          = '*/*'
+    HTTP.Headers['Accept-Encoding'] = 'deflate, gzip'
+    
     
 
 ####################################################################################################
@@ -400,4 +410,4 @@ def NothingFound(title, name, items):
 
     
 ## EOF ##
-    
+  
