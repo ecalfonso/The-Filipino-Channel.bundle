@@ -3,6 +3,9 @@ A Plex channel for The Filipino Channel, http://tfc.tv
 
 NOTE! This channel requires a valid TFC.tv subscription!
 
+UPDATED 2017-06-01  Hot-fix for TFC changes on their web site!
+
+
 This little project is far from production quality! 
 It is only verified to work on Plex Media Player 1.2.2 on Mac OS X and Raspberry Pi.
 
