@@ -2,6 +2,8 @@
 DEBUG           = True
 DEBUG_STRUCTURE = False
 
+
+
 # General
 TITLE      = 'The Filipino Channel'
 PREFIX     = '/video/tfctv'
@@ -17,40 +19,33 @@ ICON     = 'icon-default.png'
 LOGO     = 'TFC-logo.jpg'
 MORE     = 'more.png'
 
-# TFC URLs
-#BASE_URL   = 'http://tfc.tv/Synapse'
-BASE_URL   = 'http://t2.tfc.tv/Synapse'
 
-URL_GET_SITE_MENU        = BASE_URL + '/GetSiteMenu'
-URL_GET_MOST_LOVED_SHOWS = BASE_URL + '/GetMostLovedShows'
-URL_GET_SHOWS            = BASE_URL + '/GetShows/{SUB_CAT_ID}'
-URL_GET_SHOW_DETAILS     = BASE_URL + '/GetShowDetails/{SHOW_ID}'
-URL_SEARCH               = BASE_URL + '/ContentSearch?q={QUERY}'
+# TFC main website URLs
+BASE_URL             = 'http://tfc.tv'
+
+RE_SUB_CAT_ID = Regex(r"/category/list/(?P<sub_cat_id>\d+)/")
+RE_SHOW_ID    = Regex(r"/show/details/(?P<show_id>\d+)/")
+RE_EPISODE_ID = Regex(r"/episode/details/(?P<episode_id>\d+)/")
+RE_MOVIE_ID   = Regex(r"/episode/details/(?P<movie_id>\d+)/")
+
+# For some extremely strange and annoying reason data-src can't be extracted with XPath!!!
+# <div class="show-cover" data-src="https://timg.tfc.tv/xcms/episodeimages/129284/20170614-ikaw-487-1.jpg">
+RE_EPISODE_IMAGE_PATH = Regex(r'^<div class="show-cover" data-src="(?P<image_path>[^"]+)">')
+
+# style="background-image:url(https://timg.tfc.tv/xcms/categoryimages/4046/I-AMERICA-HERO-WEB.jpg);">
+RE_MOVIE_BANNER_PATH = Regex(r'background-image:url\((?P<banner_path>[^"]+)\);')
 
 # Constructed URLs for URL service
-URL_PLEX_MOVIE   = 'tfctv://{SHOW_ID}'
+URL_PLEX_MOVIE   = 'tfctv://{MOVIE_ID}'
 URL_PLEX_EPISODE = 'tfctv://{SHOW_ID}/{EPISODE_ID}'
 
 # Max umber of items to show in one listing
-MAX_NUM_SHOWS    = 20
-MAX_NUM_EPISODES =  5
+NUM_SHOWS_ON_PAGE = 12
+MAX_NUM_EPISODES  =  50
 
 # Set default cache to 3 hours
-CACHE_TIME = 3 * CACHE_1HOUR # seconds
-
-# URLs for testing TFC.tv
-#http://tfc.tv/Synapse/Login?email=ms1%40globalpost.se&pw=lokadm123
-#http://tfc.tv/Synapse/GetUserData?uid=c5c8a385-d366-45b6-914a-5a5cc875298b
-#http://tfc.tv/Synapse/GetSiteMenu
-#http://tfc.tv/Synapse/GetShowDetails/384
-#http://tfc.tv/Synapse/GetEpisodeDetails/121696
-#http://tfc.tv/Synapse/GetVideo/121696
-#http://tfc.tv/Synapse/GetMostLovedShows
-#http://tfc.tv/Synapse/MyContent
-#http://tfc.tv/Synapse/MyVideos
-#http://tfc.tv/Synapse/ContentSearch?q=mother&c=50
-#http://tfc.tv/Synapse/GetCelebrityDetails/37
-#http://tfc.tv/Synapse/GetComments?categoryId=Shows&streamid=Show_3484&limit=0&depth=3&sort=dateDesc
+CACHE_TIME = 0
+######CACHE_TIME = 3 * CACHE_1HOUR # seconds
 
 
 
@@ -62,7 +57,7 @@ def Start( **kwargs ):
 
     ObjectContainer.title1 = TITLE
 
-    HTTP.CacheTime = 3 * CACHE_TIME
+    HTTP.CacheTime = CACHE_TIME
 
     HTTP.Headers['User-Agent']      = USER_AGENT
     HTTP.Headers['Accept']          = '*/*'
@@ -78,25 +73,33 @@ def MainMenu( **kwargs ):
     
         oc = ObjectContainer()
 
-        site_menu = JSON.ObjectFromURL( URL_GET_SITE_MENU )
-            
-        #Log.Debug('@#$ JSON:  %s ', siteMenu )
-        
-        for category in site_menu:
-            category_name = ExtractHtmlText( category, 'name' )
-            #Log.Debug('%s', category_name )
-            oc.add( DirectoryObject( key = Callback( Category, title = TITLE, name = category_name, cat_id = category['id'] ), title = category_name ) )
 
-        oc.add( DirectoryObject( key = Callback( MostLovedShows, title = TITLE, name = 'Most Loved Shows' ), title = 'Most Loved Shows' ) )
+        html = HTML.ElementFromURL( BASE_URL )
 
-        oc.add(InputDirectoryObject(key = Callback(Search), title='Search', summary='Search The Filipino Channel', prompt='Search for...'))
+        categories = html.xpath('//div[@id="main_nav_desk"]/ul/li/a')
+
+        for category in categories:
+            category_name = category.xpath('./text()')[0]
+            category_name = String.DecodeHTMLEntities( category_name ).strip()
+
+            category_id = int(category.xpath('./@data-id')[0])
+
+            Log.Debug("%s:%d" % (category_name,category_id) )
+
+            oc.add( DirectoryObject( key = Callback( Category, title = TITLE, name = category_name, cat_id = category_id ), title = category_name ) )
+
+
+
+        #oc.add( DirectoryObject( key = Callback( MostLovedShows, title = TITLE, name = 'Most Loved Shows' ), title = 'Most Loved Shows' ) )
+
+        #oc.add(InputDirectoryObject(key = Callback(Search), title='Search', summary='Search The Filipino Channel', prompt='Search for...'))
         #oc.add(SearchDirectoryObject(identifier='com.plexapp.plugins.tfctv', title='Search', summary='Search The Filipno Channel', prompt='Search:', thumb=R('search.png')))
 
         return oc
         
     except:
 
-        return NothingFound(title, name, 'content')
+        return NothingFound(TITLE, name, 'content')
 
 
 ####################################################################################################
@@ -107,16 +110,26 @@ def Category( title, name, cat_id, **kwargs ):
     
         oc = ObjectContainer( title1 = title, title2 = name )
 
-        siteMenu = JSON.ObjectFromURL( URL_GET_SITE_MENU )
 
-        for category in siteMenu:
-            #Log.Debug("%d", category['id'] )
-            if category['id'] == cat_id:
-                #Log.Debug('cat found')
-                for sub_category in category['menu']:
-                    sub_category_name = ExtractHtmlText( sub_category, 'name' )
-                    #Log.Debug("    %s" % (sub_category_name) )
-                    oc.add( DirectoryObject( key = Callback( SubCategory, title = name, name = sub_category_name, sub_id = sub_category['id'] ), title = sub_category_name ) )
+        html = HTML.ElementFromURL( BASE_URL )
+
+        sub_categories = html.xpath( '//div[@id="main_nav_desk"]/ul/li/a[@data-id="%d"]/following::ul[1]//a' % int(cat_id) )
+
+
+        #Log.Debug("sub_categories: '%s'" % (HTML.StringFromElement(sub_categories)) )
+
+        for sub_category in sub_categories:
+            sub_category_name = sub_category.xpath('./text()')[0]
+            sub_category_name = String.DecodeHTMLEntities( sub_category_name ).strip()
+
+            sub_category_url = sub_category.xpath('./@href')[0]
+            if sub_category_url.startswith('/'):
+                sub_category_url = BASE_URL + sub_category_url
+
+            Log.Debug("    %s:%s" % (sub_category_name,sub_category_url) )
+
+            oc.add( DirectoryObject( key = Callback( SubCategory, title = name, name = sub_category_name, url = sub_category_url ), title = sub_category_name ) )
+
 
         if len(oc) < 1:
             return NothingFound(title, name, 'items')
@@ -126,9 +139,11 @@ def Category( title, name, cat_id, **kwargs ):
     except:
     
         return NothingFound(title, name, 'content')
-                                                                                                                                        
+
+
 
 ####################################################################################################
+'''
 @route(PREFIX + '/search', first=int )
 def Search( query, first=0, **kwargs ):
 
@@ -157,7 +172,7 @@ def Search( query, first=0, **kwargs ):
             #Log.Debug( "#### show_image : %s ####" % (show_image)  )
             #Log.Debug( "#### show_banner: %s ####" % (show_banner) )
 
-            oc.add( DirectoryObject( key = Callback( Show, title = 'Search Results', name = show_name, show_id = show_id ), title = show_name, thumb = show_image, art = show_banner, summary = show_blurb ) )
+            #oc.add( DirectoryObject( key = Callback( Show, title = 'Search Results', name = show_name, show_id = show_id ), title = show_name, thumb = show_image, art = show_banner, summary = show_blurb ) )
 
         if len(shows) == MAX_NUM_SHOWS:
             oc.add( NextPageObject(key = Callback( Search, query, first = first + MAX_NUM_SHOWS ) ) )
@@ -195,7 +210,7 @@ def MostLovedShows( title, name, first=0, **kwargs ):
 
             #Log.Debug("Add loved show: %s" % (show_name) )
 
-            oc.add( DirectoryObject( key = Callback( Show, title = name, name = show_name, show_id = show_id ), title = show_name, thumb = show_image, summary = show_blurb ) )
+            #oc.add( DirectoryObject( key = Callback( Show, title = name, name = show_name, show_id = show_id ), title = show_name, thumb = show_image, summary = show_blurb ) )
 
         if len(shows) == MAX_NUM_SHOWS:
             oc.add( NextPageObject(key = Callback( MostLovedShows, title = title, name = name, first = first + MAX_NUM_SHOWS ) ) )
@@ -209,165 +224,186 @@ def MostLovedShows( title, name, first=0, **kwargs ):
 
         return NothingFound(title, name, 'content')
 
+'''
 
 ####################################################################################################
-@route(PREFIX + '/subcategory', sub_id=int, first=int )
-def SubCategory( title, name, sub_id, first=0, **kwargs ):
+@route(PREFIX + '/subcategory', page=int )
+def SubCategory( title, name, url, page=1, **kwargs ):
  
-    try:
+        #try:
     
         oc = ObjectContainer( title1 = title, title2 = name )
 
-        show_info = JSON.ObjectFromURL( URL_GET_SHOWS.replace('{SUB_CAT_ID}',str(sub_id)) )
+        page_url = "%s/%d" % (url,page)
+        html = HTML.ElementFromURL( page_url )
 
-        #Log.Debug(" shows: %s", show_info )
-        
-        try:
-            shows = show_info['shows'][first:first+MAX_NUM_SHOWS]  
-        except:
-            shows = []
-        
+        shows = html.xpath('//section[contains(@class,"category-list")]//li[contains(@class,"og-grid-item-o")]')
+
         for show in shows:
-        
-            #Log.Debug(" show: %s", show )
-            
-            show_id     = show['id']
-            show_name   = ExtractHtmlText( show, 'name' )
-            show_blurb  = ExtractHtmlText( show, 'blurb' )
-            show_image  = ExtractImageUrl( show, 'image' , fallback=R(ICON) )
-            show_banner = ExtractImageUrl( show, 'banner', fallback=R(ART)  )
-            
-            #Log.Debug( "#### show_name  : %s ####" % (show_name)   )
-            #Log.Debug( "#### show_blurb : %s ####" % (show_blurb)  )
-            #Log.Debug( "#### show_image : %s ####" % (show_image)  )
+
+            show_name = show.xpath('./@data-title')[0]
+            show_name = String.DecodeHTMLEntities( show_name ).strip()
+            Log.Debug( "#### show_name  : %s" % (show_name) )
+
+            show_url = show.xpath('./a/@href')[0]
+            if show_url.startswith('/'):
+                show_url = BASE_URL + show_url
+            Log.Debug( "#### show_url   : %s" % (show_url) )
+
+            show_image = show.xpath('./a/img/@src')[0]
+            Log.Debug( "#### show_image : %s ####" % (show_image)  )
+
+            show_banner = show_image
             #Log.Debug( "#### show_banner: %s ####" % (show_banner) )
 
-            oc.add( DirectoryObject( key = Callback( Show, title = name, name = show_name, show_id = show_id ), title = show_name, thumb = show_image, art = show_banner, summary = show_blurb ) )
+            show_blurb = show.xpath('./a/h3[@class="show-cover-thumb-aired-mobile"]/text()')[0]
+            show_blurb = String.DecodeHTMLEntities( show_blurb ).strip()
+            Log.Debug( "#### show_blurb : %s ####" % (show_blurb)  )
 
-        if len(shows) == MAX_NUM_SHOWS:
-            oc.add( NextPageObject(key = Callback( SubCategory, title = title, name = name, sub_id = sub_id, first = first + MAX_NUM_SHOWS ) ) )
+            oc.add( DirectoryObject( key = Callback( Show, title = name, name = show_name, url = show_url ), title = show_name, thumb = show_image, art = show_banner, summary = show_blurb ) )
+
+        # Add more button if more pages
+        last_page = int(html.xpath('//ul[@id="pagination"]/li/a/text()')[-1])
+        Log.Debug("#### Page %d (%d) ####", page, last_page)
+        if page < last_page:
+            oc.add( NextPageObject(key = Callback( SubCategory, title = title, name = name, url = url, page = page + 1 ) ) )
 
         if len(oc) < 1:
             return NothingFound(title, name, 'shows')
-                
+
+        Log.Debug( "#### Added %d DirectoryObject! ####" % int(len(oc))  )
+
         return oc 
     
-    except:
+        #except:
     
         return NothingFound(title, name, 'content') 
 
 
 ####################################################################################################
-@route(PREFIX + '/show', show_id=int, first=int )
-def Show( title, name, show_id, first=0, **kwargs ):
+@route(PREFIX + '/show', page=int )
+def Show( title, name, url, page=1, **kwargs ):
  
     try:
-    
+
+        page_url = "%s/%d" % (url,page)
+        html = HTML.ElementFromURL( page_url )
+
+        Log.Debug( "#### Show: %s : %s ####" % (name,page_url)  )
+
         oc = ObjectContainer( title1 = title, title2 = name )
 
-        show_details = JSON.ObjectFromURL( URL_GET_SHOW_DETAILS.replace('{SHOW_ID}',str(show_id)) )
-
-        #Log.Debug( "#### show_details: %s ####" % (show_details) )
-
-        show_name   = ExtractHtmlText( show_details, 'name'  )
-        show_blurb  = ExtractHtmlText( show_details, 'blurb' )
-        show_image  = ExtractImageUrl( show_details, 'image' , fallback=R(ICON) )
-        show_banner = ExtractImageUrl( show_details, 'banner', fallback=R(ART)  )
-
-        oc.art = show_banner
-
-        #Log.Debug( "#### show_name  : %s ####" % (show_name)   )
-        #Log.Debug( "#### show_blurb : %s ####" % (show_blurb)  )
-        #Log.Debug( "#### show_image : %s ####" % (show_image)  )
-        #Log.Debug( "#### show_banner: %s ####" % (show_banner) )
-        
         try:
-            show_type = show_details['type']
+            show_banner = html.xpath('//link[@rel="image_src"]/@href')[0]
         except:
-            show_type = 'Unknown'
-        #Log.Debug('#### show_type: %s ####', show_type )
+            show_banner = None
 
         try:
-            episodes = show_details['episodes'][first:first+MAX_NUM_EPISODES]
+            episodes = html.xpath('//section[@class="sub-category-page"]//li[contains(@class,"og-grid-item")]')
         except:
             episodes = []
-        #Log.Debug('#### #episodes: %d ####', len(episodes) )
+        Log.Debug( "#### Found %d episodes! ####" % int(len(episodes)) )
 
-        #Log.Debug('#### before show: %s ####', show_name )
+        if len(episodes) == 0:
 
-        if show_type == 'show' or len(episodes) > 0:
-        
-            #Log.Debug('#### show: %s ####', show_name )
+            # Assume it is a movie
+            movie_name  = html.xpath('//meta[@property="og:title"]/@content')[0]
+            movie_name = String.DecodeHTMLEntities( movie_name ).strip()
+            Log.Debug( "#### movie_name : %s ####" % (movie_name)  )
+
+            movie_blurb = html.xpath('//meta[@property="og:description"]/@content')[0]
+            movie_blurb = String.DecodeHTMLEntities( movie_blurb ).strip()
+
+            movie_image = html.xpath('//meta[@property="og:image"]/@content')[0]
+            Log.Debug( "#### movie_image : %s ####" % (movie_image)  )
+
+            banner_path = html.xpath('//div[@class="header-hero-image"]/@style')[0]
+            m = RE_MOVIE_BANNER_PATH.search( banner_path )
+            if m:
+                movie_banner = m.group('banner_path')
+            else:
+                movie_banner = None
+            Log.Debug( "#### movie_banner : %s ####", movie_banner )
+
+            # Extract movie_id from movie url
+            movie_url = html.xpath('//div[@class="header-hero-image"]//a/@href')[0]
+            movie_id = RE_MOVIE_ID.search(movie_url).group('movie_id')
+            Log.Debug( "#### movie_id : %s ####" % (movie_id) )
+
+            oc.add( MovieObject(
+                     url                     = URL_PLEX_MOVIE.replace('{MOVIE_ID}',str(movie_id)),
+                     title                   = movie_name,
+                     thumb                   = movie_image,
+                     source_title            = 'TFC.tv',
+                     summary                 = movie_blurb,
+                     #duration                = duration,
+                     #originally_available_at = originally_available_at,
+                     #art                     = movie_banner
+                 ))
+
+            return oc
+
+        else:
+
+            # Extract show id from url
+            show_id = RE_SHOW_ID.search(page_url).group('show_id')
+            Log.Debug( "#### show_id : %s ####" % (show_id) )
 
             for episode in episodes:
 
-                #Log.Debug('#### episode: %s ####', str(episode) )
+                episode_name = episode.xpath('./a/div[@class="show-date"]/text()')[0]
+                episode_name = String.DecodeHTMLEntities( episode_name ).strip()
+                #Log.Debug( "#### episode_name : %s ####" % (episode_name)  )
 
-                episode_name = ExtractHtmlText( episode, 'name' )
-                
-                #Log.Debug('#### episode_name: %s ####', episode_name )
+                episode_id_href = episode.xpath('./a/@href')[0]
+                # Impossible to get the regex to work so we just split on the / for now...
+                episode_id = int(episode_id_href.split('/')[3])
+                #Log.Debug( "#### episode_id : %d ####" % (episode_id)  )
 
-                episode_id              = episode['id']
-                image                   = ExtractImageUrl( episode, 'image', fallback=R(ICON) )
-                summary                 = ExtractHtmlText( episode, 'synopsis' )
-                index                   = episode['episodenumber']
-                duration                = Datetime.MillisecondsFromString(episode['episodelength'])
-                originally_available_at = Datetime.ParseDate(episode['dateaired'])
+                #originally_available_at = Datetime.ParseDate(episode.xpath('./@data-aired'))
+
+                # For some extremely strange and annoying reason data-src can't be extracted with XPath!!!
+                # <div class="show-cover" data-src="https://timg.tfc.tv/xcms/episodeimages/129284/20170614-ikaw-487-1.jpg">
+                image_path = HTML.StringFromElement( episode.xpath('./a//div[@class="show-cover"]')[0] )
+                # Log.Debug( "#### image_path : %s ####", image_path )
+
+                m = RE_EPISODE_IMAGE_PATH.search( image_path )
+                if m:
+                    episode_image = m.group('image_path')
+                else:
+                    episode_image = None
+                #Log.Debug( "#### episode_image : %s ####", episode_image )
+
+                episode_blurb = episode.xpath('./@data-show-description')[0]
+                episode_blurb = String.DecodeHTMLEntities( episode_blurb ).strip()
+                #Log.Debug( "#### episode_blurb : %s ####" % (episode_blurb)  )
+                #Log.Debug( "#### episode_banner: %s ####" % (episode_banner) )
 
                 oc.add( EpisodeObject(
                          url                     = URL_PLEX_EPISODE.replace('{SHOW_ID}',str(show_id)).replace('{EPISODE_ID}',str(episode_id)),
                          title                   = episode_name,
-                         thumb                   = image,
+                         thumb                   = episode_image,
                          source_title            = 'TFC.tv',
-                         summary                 = summary,
-                         show                    = show_name,
+                         summary                 = episode_blurb,
+                         show                    = name,
                          #season                  = season,
-                         absolute_index           = index,
-                         duration                = duration,
-                         originally_available_at = originally_available_at,
-                         art                     = show_banner 
+                         #absolute_index           = index,
+                         #duration                = duration,
+                         #originally_available_at = originally_available_at,
+                         art                     = show_banner
                      ))
 
+            # Add more button if more pages
+            last_page = int(html.xpath('//ul[@id="pagination"]/li/a/text()')[-1])
+            Log.Debug("#### Page %d (%d) ####", page, last_page)
+            if page < last_page:
+                oc.add( NextPageObject(key = Callback( Show, title = title, name = name, url = url, page = page + 1 ) ) )
 
-            if len(episodes) == MAX_NUM_EPISODES:
-                oc.add( NextPageObject(key = Callback( Show, title = title, name = name, show_id = show_id, first = first + MAX_NUM_EPISODES ) ) )
+            if len(oc) < 1:
+                return NothingFound(title, name, 'episodes')
 
-        elif show_type == 'movie':
+            return oc 
 
-            Log.Debug('#### movie: %s ####', show_name )
-            
-            try:
-                originally_available_at = Datetime.ParseDate(show_details['dateairedstr'])
-            except:
-                originally_available_at = ''
-            try:
-                url = URL_PLEX_MOVIE.replace('{SHOW_ID}',str(show_id))
-            except:
-                url = 'illegal url'
-                
-            Log.Debug('#### URL: %s ####', url )
-
-            oc.add( MovieObject(
-                         url                     = url,
-                         title                   = show_name,
-                         thumb                   = show_image,
-                         summary                 = show_blurb,
-                         #tagline                 = name,   
-                         #duration                = duration,
-                         year                    = originally_available_at,
-                         originally_available_at = originally_available_at,
-                         art                     = show_banner
-                     )) 
-
-        else:
-        
-            Log.Debug('#### Unknown type!!: %s ####', show_name )
-
-        if len(oc) < 1:
-            return NothingFound(title, name, 'episodes')
-
-        return oc 
-    
     except:
     
         return NothingFound(title, name, 'content')
@@ -410,4 +446,4 @@ def NothingFound(title, name, items):
 
     
 ## EOF ##
-  
+    
