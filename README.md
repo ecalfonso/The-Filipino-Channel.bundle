@@ -15,6 +15,8 @@ Horrible code right now but it seems to work!!!
                    
 Without studying the Kodi TFC in [https://github.com/benaranguren/nuodtayo.tv/blob/master/plugin.video.tfctv/](https://github.com/benaranguren/nuodtayo.tv/blob/master/plugin.video.tfctv/ "https://github.com/benaranguren/nuodtayo.tv/blob/master/plugin.video.tfctv/")  and [https://github.com/cmik/cmik.xbmc/blob/master/plugin.video.tfctv/](https://github.com/cmik/cmik.xbmc/blob/master/plugin.video.tfctv/ "https://github.com/cmik/cmik.xbmc/blob/master/plugin.video.tfctv/") I would never been able to fix it...
 
+Big thanks to @benaranguren and @cmik
+
 
 
 
