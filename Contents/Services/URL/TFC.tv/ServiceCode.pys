@@ -132,12 +132,12 @@ def MediaObjectsForURL(url):
     #Log.Debug( "Client.Product: '%s', Client.Platform: '%s'" % (Client.Product,Client.Platform) )
     return [
 		MediaObject(
-			parts = [ PartObject(key=HTTPLiveStreamURL(Callback(PlayVideo, url=url)))],
-            optimized_for_streaming = True,
-            audio_channels          = 2,
-            video_resolution        = 720
-            )
-        ]
+                    parts = [ PartObject(key=HTTPLiveStreamURL(Callback(PlayVideo, url=url)))],
+                    optimized_for_streaming = True,
+                    audio_channels          = 2,
+                    video_resolution        = 720
+                )
+            ]
 
 
 ####################################################################################################
