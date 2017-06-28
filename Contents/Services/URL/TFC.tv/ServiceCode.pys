@@ -1,15 +1,9 @@
 # General
-# USER_AGENT = 'AppleCoreMedia/1.0.0.11A501 (iPad; U; CPU OS 7_0_2 like Mac OS X; en_us)'
 USER_AGENT = 'Mozilla/5.0 (iPad: CPU OS 10_0 like Mac OS X; en-us) AppleWebKit/602.1.38 (KHTML, like Gecko) Version/10.0 Mobile/14A300 Safari/602.1'
 
 HTTP.Headers['User-Agent']      = USER_AGENT
 HTTP.Headers['Accept']          = '*/*'
 HTTP.Headers['Accept-Encoding'] = 'deflate, gzip'
-
-#        HTTP.Headers['Accept'] = 'application/json, text/javascript, */*; q=0.01'
-#        HTTP.Headers['Accept-Language'] = 'en-us'
-#        HTTP.Headers['Accept-Encoding'] = 'gzip, deflate'
-#        HTTP.Headers['Content-Type'] = 'application/x-www-form-urlencoded; charset=UTF-8'
 
 # Resources
 ART      = 'art-default.jpg'
@@ -44,7 +38,7 @@ RE_M3U8 = Regex( r"#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=(?P<bandwidth>\d+),R
 RE_DOMAIN = Regex(r"https?://(?P<domain>[^\/]+)")
 
 # Set default cache to 3 hours
-CACHE_TIME = 0 ##### 3 * CACHE_1HOUR # seconds
+CACHE_TIME = 3 * CACHE_1HOUR
 
 COOKIES = ''
 
@@ -196,7 +190,7 @@ def PlayVideo( url, **kwargs ):
 ####################################################################################################
 def GetPlaylistURL( video_id, cookies ):
 
-        #try:
+    try:
 
         url = URL_GET_VIDEO_DETAILS.replace('{VIDEO_ID}',str(video_id))
 
@@ -226,30 +220,6 @@ def GetPlaylistURL( video_id, cookies ):
             values = {'id': video_id, 'pv': 'False'}
             #values = {'id': video_id, 'pv': 'True'}
 
-
-            '''  WEB
-            POST /media/get HTTP/1.1
-Host: tfc.tv
-Accept: application/json, text/javascript, */*; q=0.01
-x-ms-request-id: pC23B
-x-ms-request-root-id: eSRwr
-X-Requested-With: XMLHttpRequest
-Accept-Language: en-us
-mediaToken: QwLTJvyuGB8m0AXvBJDIrkKGIua8_r-0-I0kPki4nHCOvkMHRA7fLCzJdw7Zm1TIEF6MXl8coBT3vI_WhyOUH751ayY1:cpOtkce8WGTqKbC1qeLS1nGEboEfjJrnY_gKhQXQb3cL6U0Dq4RwiSCA7agrD08HihgGfLPNcgJj2DQ3g6FKWQsDCQ3ju3K0_FN4Mn9qY_q95IXqeOiq56ImxqXPy6yYdY1Czg2
-Accept-Encoding: gzip, deflate
-Content-Type: application/x-www-form-urlencoded; charset=UTF-8
-Origin: http://tfc.tv
-Content-Length: 18
-User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_5) AppleWebKit/603.2.4 (KHTML, like Gecko) Version/10.1.1 Safari/603.2.4
-Referer: http://tfc.tv/episode/details/130084/ancalerts-june-23-2017
-Connection: keep-alive
-Cookie: _dc_gtm_UA-2265816-17=1; _ga=GA1.2.281110581.1448475750; _gid=GA1.2.1631425725.1498218596; glt_2_6Y5KLYxUvG2qbK6AoEjHQIISiJvj99Li5cluBktSMTIrFPU2T3DR
-13:51:07.886175 IP (tos 0x0, ttl 63, id 17803, offset 0, flags [DF], proto TCP (6), length 797)
-    192.168.128.3.49568 > 104.20.18.20.80: Flags [P.], cksum 0x3fe4 (correct), seq 13845:14602, ack 93037, win 8192, length 757: HTTP
-E...E.@.?.8|....h......P[UP.....P. .?...595684|1498218660313.7; ai_authUser=c5c8a385-d366-45b6-914a-5a5cc875298b; .GNSAUTH=D48428F93245332A45021829606649013D0BC11F246F047F5C8FED1C049E8F247E4046355BD3A02E26DA861BD7999E8F646D377A66D23A1DC68744777B950F1A4ACAA130E5AD581D0A1D9474F1DEEF75CF8D806CEAAA84E8DA126AB64A90A85C8BC3CD39C65A61F2E30F19B727A81B88CE11076BEE6B28D42653F8D53BD46DB73300570D18327C05FCD1D4B87947CE39F7A952CC; uid=c5c8a385-d366-45b6-914a-5a5cc875298b; __RequestVerificationToken=QnhdB8_GAyEyRK7aOdRCkdr2E0xW8V_E7V3yiV-_gVaz1JjvdOTkmFVmn1oAGmZQKDEwxdD1PgkhtuBmb_1_weD7wlI1; ASP.NET_SessionId=uo2islffjvk3mmpsrogp4nbu; gudtExternal=false; gudtInternal=false; gudtPrivacy=true,false; cc_fingerprintid=57d91dd1506b2aec7eeae2b78e5ebbd4; is_first=1; ai_user=wnDC9|2017-06-02T14:00:43.135Z
-
-            '''
-
             #Log.Debug( '\n## before JSON.ObjectFromURL json_headers: %s ##\n', json_headers )
             #Log.Debug( '\n## before JSON.ObjectFromURL values: %s ##\n', values )
 
@@ -269,10 +239,10 @@ E...E.@.?.8|....h......P[UP.....P. .?...595684|1498218660313.7; ai_authUser=c5c8
             Log.Error('### mediaToken not found! ###' )
 
 
-        #except:
-        #raise Ex.MediaNotAvailable
-
+    except:
         raise Ex.MediaNotAvailable
+
+    raise Ex.MediaNotAvailable
 
 
 
