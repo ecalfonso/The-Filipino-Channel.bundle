@@ -2,23 +2,16 @@
 DEBUG           = True
 DEBUG_STRUCTURE = False
 
-
-
 # General
 TITLE      = 'The Filipino Channel'
 PREFIX     = '/video/tfctv'
-#USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_2) AppleWebKit/600.3.18 (KHTML, like Gecko) Version/8.0.3 Safari/600.3.18'
 USER_AGENT = 'Mozilla/4,0'
-## HTTP.Headers['User-Agent']      = USER_AGENT
-## HTTP.Headers['Accept']          = '*/*'
-## HTTP.Headers['Accept-Encoding'] = 'deflate, gzip'
 
 # Resources
 ART      = 'art-default.jpg'
 ICON     = 'icon-default.png'
 LOGO     = 'TFC-logo.jpg'
 MORE     = 'more.png'
-
 
 # TFC main website URLs
 BASE_URL             = 'http://tfc.tv'
@@ -39,15 +32,12 @@ RE_MOVIE_BANNER_PATH = Regex(r'background-image:url\((?P<banner_path>[^"]+)\);')
 URL_PLEX_MOVIE   = 'tfctv://{MOVIE_ID}'
 URL_PLEX_EPISODE = 'tfctv://{SHOW_ID}/{EPISODE_ID}'
 
-# Max umber of items to show in one listing
+# Max number of items to show in one listing
 NUM_SHOWS_ON_PAGE = 12
 MAX_NUM_EPISODES  =  50
 
 # Set default cache to 3 hours
-CACHE_TIME = 0
-######CACHE_TIME = 3 * CACHE_1HOUR # seconds
-
-
+CACHE_TIME = 3 * CACHE_1HOUR
 
 ####################################################################################################
 def Start( **kwargs ):
@@ -73,7 +63,6 @@ def MainMenu( **kwargs ):
     
         oc = ObjectContainer()
 
-
         html = HTML.ElementFromURL( BASE_URL )
 
         categories = html.xpath('//div[@id="main_nav_desk"]/ul/li/a')
@@ -89,9 +78,7 @@ def MainMenu( **kwargs ):
             oc.add( DirectoryObject( key = Callback( Category, title = TITLE, name = category_name, cat_id = category_id ), title = category_name ) )
 
 
-
         #oc.add( DirectoryObject( key = Callback( MostLovedShows, title = TITLE, name = 'Most Loved Shows' ), title = 'Most Loved Shows' ) )
-
         #oc.add(InputDirectoryObject(key = Callback(Search), title='Search', summary='Search The Filipino Channel', prompt='Search for...'))
         #oc.add(SearchDirectoryObject(identifier='com.plexapp.plugins.tfctv', title='Search', summary='Search The Filipno Channel', prompt='Search:', thumb=R('search.png')))
 
@@ -110,11 +97,9 @@ def Category( title, name, cat_id, **kwargs ):
     
         oc = ObjectContainer( title1 = title, title2 = name )
 
-
         html = HTML.ElementFromURL( BASE_URL )
 
         sub_categories = html.xpath( '//div[@id="main_nav_desk"]/ul/li/a[@data-id="%d"]/following::ul[1]//a' % int(cat_id) )
-
 
         #Log.Debug("sub_categories: '%s'" % (HTML.StringFromElement(sub_categories)) )
 
@@ -230,7 +215,7 @@ def MostLovedShows( title, name, first=0, **kwargs ):
 @route(PREFIX + '/subcategory', page=int )
 def SubCategory( title, name, url, page=1, **kwargs ):
  
-        #try:
+    try:
     
         oc = ObjectContainer( title1 = title, title2 = name )
 
@@ -275,7 +260,7 @@ def SubCategory( title, name, url, page=1, **kwargs ):
 
         return oc 
     
-        #except:
+    except:
     
         return NothingFound(title, name, 'content') 
 
