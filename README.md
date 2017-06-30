@@ -9,6 +9,7 @@ and the code works for me but may not be written in an optimum way...
 Nevertheless, enjoy!
 
 UPDATED 2017-06-30  Improved handling of Live TV and Specials
+
 UPDATED 2017-06-25  Rewritten to use the TFC website since the iPhone App API was closed down.
 
 Horrible code right now but it seems to work!!!
