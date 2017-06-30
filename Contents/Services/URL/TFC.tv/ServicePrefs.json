@@ -1,18 +1,25 @@
 [
 	{
-		"id"      : "email",
-		"type"    : "text",
-		"label"   : "User Name",
-		"default" : "",
+		"id"      : "preview" ,
+		"type"    : "bool"    ,
+		"label"   : "Preview Mode (No login required)" ,
+		"default" : "false"   ,
 		"secure"  : "true"
 	},
 	{
-		"id"      : "password",
-		"type"    : "text"    ,
-		"option"  : "hidden"  ,
-		"label"   : "Password",
-		"default" : ""        ,
-		"secure"  :  "true"
+		"id"      : "email"    ,
+		"type"    : "text"     ,
+		"label"   : "TFC Login",
+		"default" : ""         ,
+		"secure"  : "true"
+	},
+	{
+		"id"      : "password"    ,
+		"type"    : "text"        ,
+		"option"  : "hidden"      ,
+		"label"   : "TFC Password",
+		"default" : ""            ,
+		"secure"  : "true"
 	}
 ]
 
