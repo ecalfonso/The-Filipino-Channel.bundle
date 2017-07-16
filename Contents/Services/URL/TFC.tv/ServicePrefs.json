@@ -3,8 +3,7 @@
 		"id"      : "preview" ,
 		"type"    : "bool"    ,
 		"label"   : "Preview Mode (No login required)" ,
-		"default" : "false"   ,
-		"secure"  : "true"
+		"default" : "false"   
 	},
 	{
 		"id"      : "email"    ,
@@ -20,6 +19,12 @@
 		"label"   : "TFC Password",
 		"default" : ""            ,
 		"secure"  : "true"
+	},
+	{
+		"id"      : "debug_level" ,
+		"type"    : "text"        ,
+		"label"   : "Debug Level" ,
+		"default" : "0"           
 	}
 ]
 
