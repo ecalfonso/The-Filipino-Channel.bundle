@@ -169,21 +169,24 @@ def PlayVideo( url, **kwargs ):
 
             # Get the m3u8 playlist url
             playlist_url = GetPlaylistURL( video_id )
-            #Log.Debug( '## playlist_url: %s ##', playlist_url )
+            DebugLog( 2, '## playlist_url: %s ##', playlist_url )
+
+            # Remove bandwidth limitation
+            playlist_url = playlist_url.replace('&b=100-1000', '')
 
             # Read the playlist to get the akamai cookies!
             x = HTTP.Request( playlist_url, cacheTime = 0 )
-            #Log.Debug( '## playlist: %s ##', x.content )
+            DebugLog( 3, '## playlist: %s ##', x.content )
 
             # Extract and update cookies
             domain  = RE_DOMAIN.search(playlist_url).group('domain')
             cookies = '%s; path=/; domain=%s;' % (HTTP.CookiesForURL(playlist_url), domain)
-            #Log.Debug( '## Final cookies for playlist_url: %s ##', cookies )
+            DebugLog( 2, '## Final cookies for playlist_url: %s ##', cookies )
 
             return IndirectResponse( VideoClipObject, key = HTTPLiveStreamURL( url = playlist_url ), http_cookies = cookies )
 
     except:
-        Log.Debug( '** PlayVideo(%s) FAILED! **', url )
+        Log.Error( '** PlayVideo(%s) FAILED! **', url )
 
     raise Ex.MediaNotAvailable
 
@@ -197,7 +200,7 @@ def GetPlaylistURL( video_id ):
 
         cookies = Login()
 
-        #Log.Debug('##### GetPlaylistURL::cookies: "%s" #####' % (cookies) )
+        DebugLog( 3, '##### GetPlaylistURL::cookies: "%s" #####' % (cookies) )
 
         url = URL_GET_VIDEO_DETAILS.replace('{VIDEO_ID}',str(video_id))
 
@@ -208,7 +211,7 @@ def GetPlaylistURL( video_id ):
         # Extract mediaToken
         amp_script = html.xpath('//script[contains(@src,"/Scripts/amp-")][contains(@src,".js?token=")]/@src')[1]
         mediaToken = amp_script.split('=')[1]
-        #Log.Debug('##### mediaToken: %s' % (mediaToken) )
+        DebugLog( 3, '##### mediaToken: %s' % (mediaToken) )
 
         if mediaToken:
 
@@ -220,11 +223,11 @@ def GetPlaylistURL( video_id ):
                 values = {'id': video_id, 'pv': 'False'}
             else:
                 values = {'id': video_id, 'pv': 'True'}
-            #Log.Debug('##### values: %s' % (values) )
+            DebugLog( 3, '##### values: %s' % (values) )
 
             mediaInfo = JSON.ObjectFromURL( URL_GET_VIDEO, values = values, headers = JSON_HEADERS, cacheTime = 0 )
 
-            #Log.Debug('@#$ \n\nJSON:  %s\n\n ' % mediaInfo )
+            DebugLog( 1, '@#$ \n\nJSON:  %s\n\n ' % mediaInfo )
 
             if mediaInfo['StatusCode'] == 1 and mediaInfo['StatusMessage'] == 'OK':
                 #and mediaInfo['MediaReturnObj']['UserType'] == 'REGISTERED':
@@ -266,11 +269,11 @@ def Login():
 
         if url == BASE_URL + '/' and COOKIES:
             # No need to login
-            #Log.Debug( '# Already logged in! # ' )
+            DebugLog( 2, '# Already logged in! # ' )
             return COOKIES
 
         # Need to login
-        #Log.Debug( '# Need to login... #' )
+        DebugLog( 2, '# Need to login... #' )
 
         COOKIES = ''
 
@@ -287,7 +290,7 @@ def Login():
 
         url = html.xpath('//meta[@property="og:url"]/@content')[0]
         if url == BASE_URL + '/':
-            #Log.Debug( '# Login successful #' )
+            DebugLog( 2, '# Login successful #' )
 
             COOKIES = HTTP.CookiesForURL( URL_LOGIN )
 
@@ -295,15 +298,26 @@ def Login():
             cc_fingerprintid = Hash.MD5( Prefs['email'] )
             COOKIES = '%s; cc_fingerprintid=%s;' % (COOKIES, cc_fingerprintid)
 
-            #Log.Debug( '## COOKIES: %s ##' % str(COOKIES) )
+            DebugLog( 3, '## COOKIES: %s ##' % str(COOKIES) )
 
             return COOKIES
         
     except:
-        Log( '## Failed to login!: #' )
+        Log.Error( '## Failed to login!: #' )
         
     raise Ex.MediaNotAvailable
 
+
+
+####################################################################################################
+def DebugLog(level, *args):
+    try:
+        debug_level = int(Prefs['debug_level'])
+    except:
+        debug_level = 1
+
+    if level <= debug_level:
+        Log.Debug( *args )
 
 
 ####################################################################################################
