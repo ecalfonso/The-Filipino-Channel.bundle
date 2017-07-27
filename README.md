@@ -1,6 +1,8 @@
 # The-Filipino-Channel.bundle
 A Plex channel for The Filipino Channel, http://tfc.tv
 
+To install follow the instructions here: https://support.plex.tv/hc/en-us/articles/201187656-How-do-I-manually-install-a-channel-
+
 NOTE! This channel requires a valid TFC.tv subscription!
 
 Please note that is is my first attempt to make a Plex channel and I have copied extensively from many different channels
