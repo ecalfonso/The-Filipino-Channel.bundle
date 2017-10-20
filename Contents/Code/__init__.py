@@ -15,8 +15,13 @@ LOGO     = 'TFC-logo.jpg'
 MORE     = 'more.png'
 
 
+# GitHub latest version
+CHECK_VERSION = False
+VERSION_URL = 'https://raw.githubusercontent.com/magnuslsjoberg/The-Filipino-Channel.bundle/master/Contents/Version.txt'
+
 # TFC main website URLs
 BASE_URL             = 'http://tfc.tv'
+URL_LOGIN            = 'https://tfc.tv/user/login'
 
 RE_SUB_CAT_ID = Regex(r"/category/list/(?P<sub_cat_id>\d+)/")
 RE_SHOW_ID    = Regex(r"/show/details/(?P<show_id>\d+)/")
@@ -58,7 +63,6 @@ def Start( **kwargs ):
     HTTP.Headers['Accept']          = '*/*'
     HTTP.Headers['Accept-Encoding'] = 'deflate, gzip'
     
-    
 
 ####################################################################################################
 @handler(PREFIX, TITLE, art=ART, thumb=LOGO)
@@ -68,6 +72,29 @@ def MainMenu( **kwargs ):
     
         oc = ObjectContainer()
 
+        if CHECK_VERSION:
+        
+            # Check latest version in GitHub
+            try:
+                html = HTML.ElementFromURL( VERSION_URL, cacheTime = 0 ) #### 24*CACHE_1HOUR )
+                Log.Debug(str(html))
+                
+                version = html.content
+                Log.Debug(version)
+                
+                oc.header  = "UPGRADE AVAILABLE!"
+                oc.message = "Latest version %s found." % str(version)
+        
+                return oc
+
+            except:
+                oc.header  = "ALL OK"
+                oc.message = "NO version found."
+
+                return oc
+
+                pass
+            
         html = HTML.ElementFromURL( BASE_URL )
 
         categories = html.xpath('//div[@id="main_nav_desk"]/ul/li/a')
@@ -279,9 +306,18 @@ def Show( title, name, url, page=1, **kwargs ):
     try:
 
         page_url = "%s/%d" % (url,page)
-        html = HTML.ElementFromURL( page_url )
 
         Log.Debug( "#### Show: %s : %s ####" % (name,page_url)  )
+
+
+        cookies = Login()
+
+        Log.Debug( '##### Show::cookies: "%s" #####' % (cookies) )
+
+        HTTP.Headers['Cookie'] = cookies
+        
+        
+        html = HTML.ElementFromURL( page_url )
 
         oc = ObjectContainer( title1 = title, title2 = name )
 
@@ -483,6 +519,68 @@ def NothingFound(title, name, items):
     
     return oc
 
-    
+   
+####################################################################################################
+def Login():
+
+    global COOKIES
+
+    #try:
+    #    if Prefs['preview']:
+    #        COOKIES = ''
+    #        return COOKIES
+    #except:
+    #    pass
+
+    try:
+
+        html = HTML.ElementFromURL( URL_LOGIN, cacheTime = 0 )
+
+        try:
+            url = html.xpath('//meta[@property="og:url"]/@content')[0]
+        except:
+            url = ''
+
+        if url == BASE_URL + '/' and COOKIES:
+            # No need to login
+            DebugLog( 2, '# Already logged in! # ' )
+            return COOKIES
+
+        # Need to login
+        Log.Debug( '# Need to login... #' )
+
+        COOKIES = ''
+
+        token = html.xpath('//input[@name="__RequestVerificationToken"]/@value')[0]
+        #Log.Debug( '## __RequestVerificationToken: %s ##' % str(token) )
+        values = {
+                    '__RequestVerificationToken': token,
+                    'EMail'                     : Prefs['email'],
+                    'Password'                  : Prefs['password']
+                 }
+
+        HTTP.Headers['Referer'] = URL_LOGIN
+        html = HTML.ElementFromURL( URL_LOGIN, values = values, cacheTime=0 )
+
+        url = html.xpath('//meta[@property="og:url"]/@content')[0]
+        if url == BASE_URL + '/':
+            Log.Debug( '# Login successful #' )
+
+            COOKIES = HTTP.CookiesForURL( URL_LOGIN )
+
+            # From https://github.com/benaranguren/nuodtayo.tv/blob/master/plugin.video.tfctv/default.py
+            cc_fingerprintid = Hash.MD5( Prefs['email'] )
+            COOKIES = '%s; cc_fingerprintid=%s;' % (COOKIES, cc_fingerprintid)
+
+            Log.Debug( '## COOKIES: %s ##' % str(COOKIES) )
+
+            return COOKIES
+        
+    except:
+        Log.Error( '## Failed to login!: #' )
+        
+    raise Ex.MediaNotAvailable
+
+
 ## EOF ##
     
