@@ -543,7 +543,7 @@ def Login():
 
         if url == BASE_URL + '/' and COOKIES:
             # No need to login
-            DebugLog( 2, '# Already logged in! # ' )
+            Log.Debug( '# Already logged in! # ' )
             return COOKIES
 
         # Need to login
