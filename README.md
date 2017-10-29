@@ -10,7 +10,7 @@ and the code works for me but may not be written in an optimum way...
 
 Nevertheless, enjoy!
 
-UPDATED 2017-10-29  Version 1.0.4 - More improvements and optimization.
+UPDATED 2017-10-29  Version 1.0.4 - More improvements and optimizations.
 
 UPDATED 2017-10-29  Version 1.0.3 - Improved structure. Improved logging.
 
