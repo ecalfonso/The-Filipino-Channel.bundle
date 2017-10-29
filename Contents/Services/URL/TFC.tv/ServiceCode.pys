@@ -14,9 +14,8 @@ MORE     = 'more.png'
 URL_GET_VIDEO_DETAILS = BASE_URL + '/episode/details/{VIDEO_ID}'
 URL_GET_VIDEO         = BASE_URL + '/media/get'
 
-# Constructed URLs for URL service
-RE_PLEX_MOVIE_URL   = Regex( r"^tfctv://(?P<movie_id>\d+)$" )
-RE_PLEX_EPISODE_URL = Regex( r"^tfctv://(?P<show_id>\d+)/(?P<episode_id>\d+)$" )
+# TFC id URL patterns 
+RE_VIDEO_ID = Regex(r"(?P<url>https?://tfc.tv/(episode|live)/details/(?P<video_id>\d+))(/?.*)")
 
 # style="background-image:url(https://timg.tfc.tv/xcms/categoryimages/4046/I-AMERICA-HERO-WEB.jpg);">
 RE_MOVIE_BANNER_PATH = Regex(r'background-image:url\((?P<banner_path>[^"]+)\);')
@@ -37,73 +36,58 @@ JSON_HEADERS['Content-Type']     = 'application/x-www-form-urlencoded; charset=U
 JSON_HEADERS['Host']             = 'tfc.tv'
 JSON_HEADERS['Origin']           = BASE_URL
 
+
+####################################################################################################
+def NormalizeURL( url ):
+
+    if DEBUG_LEVEL > 3: Log.Debug(DBG( "NormalizeURL, url_in  = '%s'" % (url) ))
+
+    m = RE_VIDEO_ID.match( url )        
+    if m:
+        url = m.group('url')
+        if DEBUG_LEVEL > 3: Log.Debug(DBG( "NormalizeURL, url_out = '%s'" % (url) ))
+            
+    return url
+
 ####################################################################################################
 def MetadataObjectForURL( url ):
 
-    #Log.Debug('# ServiceCode **********  MetadataObjectForURL  ********** %s', url )
-
-    try:
-        CACHE_TIME = int(Prefs['cache_time']) * CACHE_1HOUR
-    except:
-        CACHE_TIME = 3 * CACHE_1HOUR
+    if DEBUG_LEVEL > 3: Log.Debug(DBG( "MetadataObjectForURL, url = '%s'" % (url) ))
         
     try:
+    
+        html = HTML.ElementFromURL( url, cacheTime = CACHE_TIME )
 
-        movie = RE_PLEX_MOVIE_URL.match( url )
-        if movie:
-            #Log.Debug('# **********  RE_PLEX_MOVIE_URL  ********** ' )
-            video_id = movie.group('movie_id')
-            #Log.Debug('# **********  RE_PLEX_MOVIE_URL  movie_id = %s', video_id )
+        title  = html.xpath('//meta[@property="og:title"]/@content')[0]
+        title = String.DecodeHTMLEntities( title ).strip()
+        if DEBUG_LEVEL > 3: Log.Debug(DBG( "title : %s" % (title) ))
 
-        episode = RE_PLEX_EPISODE_URL.match( url )
-        if episode:
-            #Log.Debug('# **********  RE_PLEX_EPISODE_URL  ********** ' )
-            video_id = episode.group('episode_id')
-            #Log.Debug('# **********  RE_PLEX_EPISODE_URL  episode_id = %s', video_id )
+        summary = html.xpath('//meta[@property="og:description"]/@content')[0]
+        summary = String.DecodeHTMLEntities( summary ).strip()
+        if DEBUG_LEVEL > 3: Log.Debug(DBG( "summary : %s" % (summary[:50]) ))
 
-        if movie or episode:
+        image = html.xpath('//meta[@property="og:image"]/@content')[0]
+        if DEBUG_LEVEL > 3: Log.Debug(DBG( "image : %s" % (image) ))
 
-            html = HTML.ElementFromURL( URL_GET_VIDEO_DETAILS.replace('{VIDEO_ID}',str(video_id)), cacheTime = CACHE_TIME )
+        try:
+            banner_path = html.xpath('//div[@class="header-hero-image"]/@style')[0]
+        except:
+            banner_path = ''
+        m = RE_MOVIE_BANNER_PATH.search( banner_path )
+        if m:
+            banner = m.group('banner_path')
+        else:
+            banner = None
+        if DEBUG_LEVEL > 3: Log.Debug(DBG( "banner : %s" % (banner) ))
 
-            title  = html.xpath('//meta[@property="og:title"]/@content')[0]
-            title = String.DecodeHTMLEntities( title ).strip()
-            #Log.Debug( "#### title : %s ####" % (title)  )
-
-            summary = html.xpath('//meta[@property="og:description"]/@content')[0]
-            summary = String.DecodeHTMLEntities( summary ).strip()
-            #Log.Debug( "#### summary : %s ####" % (summary)  )
-
-            image = html.xpath('//meta[@property="og:image"]/@content')[0]
-            #Log.Debug( "#### image : %s ####" % (image)  )
-
-            try:
-                banner_path = html.xpath('//div[@class="header-hero-image"]/@style')[0]
-            except:
-                banner_path = ''
-            m = RE_MOVIE_BANNER_PATH.search( banner_path )
-            if m:
-                banner = m.group('banner_path')
-            else:
-                banner = None
-            #Log.Debug( "#### banner : %s ####", banner )
-
-        if movie:
-
-            #Log.Debug('# RETURN MovieObject #' )
-
-            return( MovieObject(
-                             title                   = title,
-                             thumb                   = image,
-                             summary                 = summary,
-                             tagline                 = title,
-                             #duration                = duration,
-                             #year                    = originally_available_at,
-                             art                     = banner
-                           ))
-
+        '''
+        episode = RE_EPISODE_ID.match( url )
+        movie   = RE_MOVIE_ID.match( url )
+        live    = RE_EPISODE_ID.match( url )
+        
         if episode:
 
-            #Log.Debug('# RETURN EpisodeObject #' )
+            if DEBUG_LEVEL > 3: Log.Debug(DBG( "RETURN EpisodeObject" ))
 
             return( EpisodeObject(
                              title                   = title,
@@ -117,8 +101,37 @@ def MetadataObjectForURL( url ):
                              art                     = banner
                            ))
 
+        elif movie:
+
+            if DEBUG_LEVEL > 3: Log.Debug(DBG( "RETURN MovieObject" ))
+
+            return( MovieObject(
+                             title                   = title,
+                             thumb                   = image,
+                             summary                 = summary,
+                             tagline                 = title,
+                             #duration                = duration,
+                             #year                    = originally_available_at,
+                             art                     = banner
+                           ))
+
+        elif live:
+        '''
+        
+        if DEBUG_LEVEL > 3: Log.Debug(DBG( "RETURN VideoClipObject" ))
+
+        return( VideoClipObject(
+                     title                   = title,
+                     thumb                   = image,
+                     source_title            = 'TFC.tv',
+                     summary                 = summary,
+                     #duration                = duration,
+                     #originally_available_at = originally_available_at,
+                     art                     = banner
+                 ))
+                 
     except:
-        #Log.Debug( '******************************* MetadataObjectForURL FAILED ! *******************************' )
+        Log.Error(DBG( "MetadataObjectForURL FAILED! url = '%s'" % (url) ))
         raise Ex.MediaNotAvailable
 
     raise Ex.MediaNotAvailable
@@ -127,7 +140,7 @@ def MetadataObjectForURL( url ):
 ####################################################################################################
 def MediaObjectsForURL(url):
 
-    #Log.Debug( '******************************* MediaObjectsForURL *******************************' )
+    if DEBUG_LEVEL > 3: Log.Debug(DBG( "MediaObjectsForURL, url = '%s'" % (url) ))
     return [
 		MediaObject(
 			parts = [ PartObject(key=HTTPLiveStreamURL(Callback(PlayVideo, url=url)))],
@@ -144,44 +157,28 @@ def PlayVideo( url, **kwargs ):
 
     try:
 
-        #Log.Debug(DBG( "******************************* PlayVideo(%s) *******************************" % url ))
+        if DEBUG_LEVEL > 1: Log.Debug(DBG( "PlayVideo, url = '%s'" % (url) ))
 
         if DEBUG_LEVEL > 1: Log.Debug(DBG( "Client.Product: '%s', Client.Platform: '%s'" % (Client.Product,Client.Platform) ))
-                                                                                                                                              
-        movie = RE_PLEX_MOVIE_URL.match( url )
-        if movie:
-            #Log.Debug('# **********  RE_PLEX_MOVIE_URL  ********** ' )
-            video_id = movie.group('movie_id')
-            #Log.Debug('# **********  RE_PLEX_MOVIE_URL  movie_id = %s', video_id )
 
-        episode = RE_PLEX_EPISODE_URL.match( url )
-        if episode:
-            #Log.Debug('# **********  RE_PLEX_EPISODE_URL  ********** ' )
-            video_id = episode.group('episode_id')
-            #Log.Debug('# **********  RE_PLEX_EPISODE_URL  episode_id = %s', video_id )
+        # Get the m3u8 playlist url
+        playlist_url = GetPlaylistURL( url )
 
-        if movie or episode:
+        # Remove bandwidth limitation
+        playlist_url = playlist_url.replace('&b=100-1000', '')
 
-            #Log.Debug( '## video_id: %s ##', video_id )
+        if DEBUG_LEVEL > 1: Log.Debug(DBG( "playlist_url: %s" % playlist_url ))
 
-            # Get the m3u8 playlist url
-            playlist_url = GetPlaylistURL( video_id )
+        # Read the playlist to get the akamai cookies!
+        x = HTTP.Request( playlist_url, cacheTime = 0 )
+        if DEBUG_LEVEL > 2: Log.Debug(DBG( "playlist: %s" % x.content ))
 
-            # Remove bandwidth limitation
-            playlist_url = playlist_url.replace('&b=100-1000', '')
+        # Extract and update cookies
+        domain  = RE_DOMAIN.search(playlist_url).group('domain')
+        cookies = '%s; path=/; domain=%s;' % (HTTP.CookiesForURL(playlist_url), domain)
+        if DEBUG_LEVEL > 2: Log.Debug(DBG( "Final cookies for playlist_url: %s" % cookies ))
 
-            if DEBUG_LEVEL > 1: Log.Debug(DBG( "playlist_url: %s" % playlist_url ))
-
-            # Read the playlist to get the akamai cookies!
-            x = HTTP.Request( playlist_url, cacheTime = 0 )
-            if DEBUG_LEVEL > 2: Log.Debug(DBG( "playlist: %s" % x.content ))
-
-            # Extract and update cookies
-            domain  = RE_DOMAIN.search(playlist_url).group('domain')
-            cookies = '%s; path=/; domain=%s;' % (HTTP.CookiesForURL(playlist_url), domain)
-            Log.Debug(DBG( "Final cookies for playlist_url: %s" % cookies ))
-
-            return IndirectResponse( VideoClipObject, key = HTTPLiveStreamURL( url = playlist_url ), http_cookies = cookies )
+        return IndirectResponse( VideoClipObject, key = HTTPLiveStreamURL( url = playlist_url ), http_cookies = cookies )
 
     except:
         Log.Error(DBG( "PlayVideo(%s) FAILED!" % url ))
@@ -190,19 +187,25 @@ def PlayVideo( url, **kwargs ):
 
 
 ####################################################################################################
-def GetPlaylistURL( video_id ):
+def GetPlaylistURL( url ):
 
     try:
-
-        if DEBUG_LEVEL > 1: Log.Debug(DBG( "GetPlaylistURL" ))
+    
+        if DEBUG_LEVEL > 1 : Log.Debug(DBG( "GetPlaylistURL, url = '%s'" % (url) ))
 
         # Login
-        HTTP.Headers['Cookie'] = Login()
+        HTTP.Headers['Cookie'] = Login()            
         if DEBUG_LEVEL > 0: Log.Debug(DBG( "GetPlaylistURL::cookies: '%s'" % (HTTP.Headers['Cookie']) ))
-
-        # Get episode details
-        url  = URL_GET_VIDEO_DETAILS.replace('{VIDEO_ID}',str(video_id))
+        
+        # Get episode/movie details
         html = HTML.ElementFromURL( url )
+
+        # Extract video id from URL
+        m = RE_VIDEO_ID.match( url )
+        if m:
+            if DEBUG_LEVEL > 3: Log.Debug(DBG( "RE_VIDEO_ID" ))
+            video_id = m.group('video_id')
+            if DEBUG_LEVEL > 3: Log.Debug(DBG( "RE_VIDEO_ID  video_id = %s" % (video_id) ))
 
         # Extract mediaToken
         amp_script = html.xpath('//script[contains(@src,"/Scripts/amp-")][contains(@src,".js?token=")]/@src')[1]

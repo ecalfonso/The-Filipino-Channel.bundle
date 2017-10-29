@@ -42,45 +42,60 @@ URL_PLEX_EPISODE = 'tfctv://{SHOW_ID}/{EPISODE_ID}'
 NUM_SHOWS_ON_PAGE = 12
 MAX_NUM_EPISODES  = 50
 
+
+VERSION = "1.0.4"
+CACHE_TIME  = 0
 DEBUG_LEVEL = 0
-VERSION = "1.0.3"
 
 Login  = SharedCodeService.TFC_Shared.Login
 Logout = SharedCodeService.TFC_Shared.Logout
 DBG    = SharedCodeService.TFC_Shared.DBG
 
 ####################################################################################################
+@route(PREFIX + '/validateprefs')
 def ValidatePrefs( **kwargs ):
-	# do nothing for now
+    
 	Log.Info(DBG( "ValidatePrefs()" ))
-	return MessageContainer( 'ValidatePrefs', 'called!' )
+	
+	SetPrefs()
+    
+	return True
 
+####################################################################################################
+@route(PREFIX + '/setprefs')
+def SetPrefs():
+
+    global CACHE_TIME
+    global DEBUG_LEVEL
+
+    try:
+        CACHE_TIME = int(Prefs['cache_time']) * CACHE_1HOUR
+    except:
+        CACHE_TIME = 3 * CACHE_1HOUR
+        
+    try:
+        DEBUG_LEVEL = int(Prefs['debug_level'])
+    except:
+        DEBUG_LEVEL = 3
+        
 
 ####################################################################################################
 def Start( **kwargs ):
-
-    global DEBUG_LEVEL
     
     Log.Info(DBG( "Starting TFC.tv channel. Version: %s" % VERSION ))
     InputDirectoryObject.thumb = R('Search.png')
     DirectoryObject.art  = R(ART)
 
     ObjectContainer.title1 = TITLE
+    ObjectContainer.title2 = 'MAIN MENU'
 
-    try:
-        HTTP.CacheTime = int(Prefs['cache_time']) * CACHE_1HOUR
-    except:
-        HTTP.CacheTime = 3 * CACHE_1HOUR
-        
-    try:
-        DEBUG_LEVEL = int(Prefs['debug_level'])
-    except:
-        DEBUG_LEVEL = 3
+    SetPrefs()
 
     HTTP.Headers['User-Agent']      = USER_AGENT
     HTTP.Headers['Accept']          = '*/*'
     HTTP.Headers['Accept-Encoding'] = 'deflate, gzip'
-    
+    HTTP.CacheTime                  = CACHE_TIME
+
     Logout()
 
 ####################################################################################################
@@ -146,7 +161,7 @@ def Category( title, name, cat_id, **kwargs ):
         
         html = HTML.ElementFromURL( BASE_URL )
 
-        #Log.Debug( "html: '%s'" % (HTML.StringFromElement(html)) )
+        if DEBUG_LEVEL > 5: Log.Debug(DBG( "html: '%s'" % (HTML.StringFromElement(html)) ))
 
         sub_categories = html.xpath( '//div[@id="main_nav_desk"]/ul/li/a[@data-id="%d"]/following::ul[1]//a' % int(cat_id) )
 
@@ -158,8 +173,11 @@ def Category( title, name, cat_id, **kwargs ):
             if sub_category_url.startswith('/'):
                 sub_category_url = BASE_URL + sub_category_url
 
-            if DEBUG_LEVEL > 0: Log.Debug(DBG( "    %s:%s" % (sub_category_name,sub_category_url) ))
+            if DEBUG_LEVEL > 0: Log.Debug(DBG( "    %s: %s" % (sub_category_name,sub_category_url) ))
 
+            # Speed up loading by precaching sub category page
+            HTTP.PreCache( sub_category_url )
+            
             oc.add( DirectoryObject( key = Callback( SubCategory, title = name, name = sub_category_name, url = sub_category_url ), title = sub_category_name ) )
 
 
@@ -263,41 +281,56 @@ def MostLovedShows( title, name, first=0, **kwargs ):
 def SubCategory( title, name, url, page=1, **kwargs ):
  
     try:
-    
-        oc = ObjectContainer( title1 = title, title2 = name )
 
         page_url = "%s/%d" % (url,page)
+
+        if DEBUG_LEVEL > 0: Log.Debug(DBG( "Show: %s : %s" % (name,page_url) ))
+
         html = HTML.ElementFromURL( page_url )
 
+        # Do we have multiple pages?
+        try:
+            last_page = int(html.xpath('//ul[@id="pagination"]/li/a/text()')[-1])
+        except:
+            last_page = 1
+        if DEBUG_LEVEL > 2: Log.Debug(DBG( "Page %d (%d)" % (page, last_page) ))
+        if last_page > 1:
+            title2 = "%s - PAGE %d (%d)" % (name,page,last_page)
+        else:
+            title2 = name
+            
+        oc = ObjectContainer( title1 = title, title2 = title2 )
+            
         shows = html.xpath('//section[contains(@class,"category-list")]//li[contains(@class,"og-grid-item-o")]')
 
         for show in shows:
 
             show_name = show.xpath('./@data-title')[0]
             show_name = String.DecodeHTMLEntities( show_name ).strip()
-            if DEBUG_LEVEL > 1: Log.Debug(DBG( "show_name  : %s" % (show_name) ))
+            if DEBUG_LEVEL > 1: Log.Debug(DBG( "  show_name  : %s" % (show_name) ))
 
             show_url = show.xpath('./a/@href')[0]
             if show_url.startswith('/'):
                 show_url = BASE_URL + show_url
-            if DEBUG_LEVEL > 1: Log.Debug(DBG( "show_url   : %s" % (show_url) ))
+            if DEBUG_LEVEL > 1: Log.Debug(DBG( "    show_url   : %s" % (show_url) ))
 
             show_image = show.xpath('./a/img/@src')[0]
-            if DEBUG_LEVEL > 1: Log.Debug(DBG( "show_image : %s" % (show_image) ))
+            if DEBUG_LEVEL > 1: Log.Debug(DBG( "    show_image : %s" % (show_image) ))
 
             show_banner = show_image
-            if DEBUG_LEVEL > 1: Log.Debug(DBG( "show_banner: %s" % (show_banner) ))
+            if DEBUG_LEVEL > 1: Log.Debug(DBG( "    show_banner: %s" % (show_banner) ))
 
             show_blurb = show.xpath('./a/h3[@class="show-cover-thumb-aired-mobile"]/text()')[0]
             show_blurb = String.DecodeHTMLEntities( show_blurb ).strip()
-            if DEBUG_LEVEL > 1: Log.Debug(DBG( "show_blurb : %s" % (show_blurb) ))
+            if DEBUG_LEVEL > 1: Log.Debug(DBG( "    show_blurb : %s" % (show_blurb) ))
 
             oc.add( DirectoryObject( key = Callback( Show, title = name, name = show_name, url = show_url ), title = show_name, thumb = show_image, art = show_banner, summary = show_blurb ) )
 
-        # Add more button if more pages
-        last_page = int(html.xpath('//ul[@id="pagination"]/li/a/text()')[-1])
-        if DEBUG_LEVEL > 1: Log.Debug(DBG( "Page %d (%d)" % (page, last_page) ))
+        # Add 'More...' button if more pages
         if page < last_page:
+            # Speed up loading by precaching next page
+            next_page_url = "%s/%d" % (url,page+1)
+            HTTP.PreCache( next_page_url )
             oc.add( NextPageObject(key = Callback( SubCategory, title = title, name = name, url = url, page = page + 1 ) ) )
 
         if len(oc) < 1:
@@ -323,6 +356,7 @@ def Show( title, name, url, page=1, **kwargs ):
 
         if DEBUG_LEVEL > 0: Log.Debug(DBG( "Show: %s : %s" % (name,page_url) ))
 
+        # Don't login if already logged in!
         try:
             html = HTML.ElementFromURL( page_url )
         except:
@@ -330,40 +364,47 @@ def Show( title, name, url, page=1, **kwargs ):
             if DEBUG_LEVEL > 1: Log.Debug(DBG( "Show::cookies: '%s'" % (HTTP.Headers['Cookie']) ))
             html = HTML.ElementFromURL( page_url )
 
-        oc = ObjectContainer( title1 = title, title2 = name )
+        # Do we have multiple pages?
+        try:
+            last_page = int(html.xpath('//ul[@id="pagination"]/li/a/text()')[-1])
+        except:
+            last_page = 1
+        if DEBUG_LEVEL > 2: Log.Debug(DBG( "Page %d (%d)" % (page, last_page) ))
+        if last_page > 1:
+            title2 = "%s - PAGE %d (%d)" % (name,page,last_page)
+        else:
+            title2 = name
+            
+        oc = ObjectContainer( title1 = title, title2 = title2 )
 
         canonical_url = html.xpath('//link[@rel="canonical"]/@href')[0]
-        if DEBUG_LEVEL > 2: Log.Debug(DBG( "canonical_url : %s" % (canonical_url) ))
+        if DEBUG_LEVEL > 2: Log.Debug(DBG( "  canonical_url : %s" % (canonical_url) ))
 
         try:
             live_id = RE_LIVE_ID.search(canonical_url).group('live_id')
         except:
             live_id = None
-        if DEBUG_LEVEL > 2: Log.Debug(DBG( "live_id : %s" % (live_id) ))
+        if DEBUG_LEVEL > 2: Log.Debug(DBG( "  live_id : %s" % (live_id) ))
 
         if live_id:
 
             # Live stream
             live_name  = html.xpath('//meta[@property="og:title"]/@content')[0]
             live_name = String.DecodeHTMLEntities( live_name ).strip()
-            if DEBUG_LEVEL > 2: Log.Debug(DBG( "live_name : %s" % (live_name) ))
+            if DEBUG_LEVEL > 2: Log.Debug(DBG( "  live_name : %s" % (live_name) ))
 
             live_blurb = html.xpath('//meta[@property="og:description"]/@content')[0]
             live_blurb = String.DecodeHTMLEntities( live_blurb ).strip()
-            if DEBUG_LEVEL > 2: Log.Debug(DBG( "live_blurb : %s" % (live_blurb) ))
+            if DEBUG_LEVEL > 2: Log.Debug(DBG( "  live_blurb : %s..." % (live_blurb[:50]) ))
 
             live_image = html.xpath('//meta[@property="og:image"]/@content')[0]
-            if DEBUG_LEVEL > 2: Log.Debug(DBG( "live_image : %s" % (live_image) ))
+            if DEBUG_LEVEL > 2: Log.Debug(DBG( "  live_image : %s" % (live_image) ))
 
             live_banner = live_image
-            if DEBUG_LEVEL > 2: Log.Debug(DBG( "live_banner : %s" % (live_banner) ))
-
-            # Extract live_id from url
-            live_id = RE_LIVE_ID.search(canonical_url).group('live_id')
-            if DEBUG_LEVEL > 2: Log.Debug(DBG( "live_id : %s" % (live_id) ))
+            if DEBUG_LEVEL > 2: Log.Debug(DBG( "  live_banner : %s" % (live_banner) ))
 
             oc.add( VideoClipObject(
-                     url                     = URL_PLEX_MOVIE.replace('{MOVIE_ID}',str(live_id)),
+                     url                     = canonical_url,
                      title                   = live_name,
                      thumb                   = live_image,
                      source_title            = 'TFC.tv',
@@ -380,13 +421,13 @@ def Show( title, name, url, page=1, **kwargs ):
             show_banner = html.xpath('//link[@rel="image_src"]/@href')[0]
         except:
             show_banner = None
-        if DEBUG_LEVEL > 1: Log.Debug(DBG( "show_banner : %s" % (show_banner) ))
+        if DEBUG_LEVEL > 1: Log.Debug(DBG( "  show_banner : %s" % (show_banner) ))
 
         try:
             episodes = html.xpath('//section[@class="sub-category-page"]//li[contains(@class,"og-grid-item")]')
         except:
             episodes = []
-        if DEBUG_LEVEL > 1: Log.Debug(DBG( "Found %d episodes!" % int(len(episodes)) ))
+        if DEBUG_LEVEL > 1: Log.Debug(DBG( "  Found %d episodes!" % int(len(episodes)) ))
 
         if len(episodes) == 0:
 
@@ -394,28 +435,27 @@ def Show( title, name, url, page=1, **kwargs ):
 
             movie_name  = html.xpath('//meta[@property="og:title"]/@content')[0]
             movie_name = String.DecodeHTMLEntities( movie_name ).strip()
-            if DEBUG_LEVEL > 2: Log.Debug(DBG( "movie_name : %s" % (movie_name) ))
+            if DEBUG_LEVEL > 2: Log.Debug(DBG( "    movie_name : %s" % (movie_name) ))
 
             movie_blurb = html.xpath('//meta[@property="og:description"]/@content')[0]
             movie_blurb = String.DecodeHTMLEntities( movie_blurb ).strip()
 
             movie_image = html.xpath('//meta[@property="og:image"]/@content')[0]
-            if DEBUG_LEVEL > 2: Log.Debug(DBG( "movie_image : %s" % (movie_image) ))
+            if DEBUG_LEVEL > 2: Log.Debug(DBG( "    movie_image : %s" % (movie_image) ))
 
             try:
                 banner_path = html.xpath('//div[contains(@class,"header-hero-image")]/@style')[0]
                 movie_banner = RE_MOVIE_BANNER_PATH.search( banner_path ).group('banner_path')
             except:
                 movie_banner = None
-            if DEBUG_LEVEL > 2: Log.Debug(DBG( "movie_banner : %s" % (movie_banner) ))
+            if DEBUG_LEVEL > 2: Log.Debug(DBG( "    movie_banner : %s" % (movie_banner) ))
 
-            # Extract movie_id from url
+            # Extract movie_url
             movie_url = html.xpath('//div[contains(@class,"header-hero-image")]//a/@href')[0]
-            movie_id  = RE_MOVIE_ID.search(movie_url).group('movie_id')
-            if DEBUG_LEVEL > 2: Log.Debug(DBG( "movie_id : %s" % (movie_id) ))
+            if DEBUG_LEVEL > 2: Log.Debug(DBG( "    movie_url : %s" % (movie_url) ))
 
             oc.add( MovieObject(
-                     url                     = URL_PLEX_MOVIE.replace('{MOVIE_ID}',str(movie_id)),
+                     url                     = BASE_URL + movie_url,
                      title                   = movie_name,
                      thumb                   = movie_image,
                      source_title            = 'TFC.tv',
@@ -435,39 +475,37 @@ def Show( title, name, url, page=1, **kwargs ):
 
             # Extract show id from url
             show_id = RE_SHOW_ID.search(page_url).group('show_id')
-            Log.Debug(DBG( "show_id : %s" % (show_id) ))
+            if DEBUG_LEVEL > 2: Log.Debug(DBG( "    show_id : %s" % (show_id) ))
 
             for episode in episodes:
 
                 episode_name = episode.xpath('./a/div[@class="show-date"]/text()')[0]
                 episode_name = String.DecodeHTMLEntities( episode_name ).strip()
-                if DEBUG_LEVEL > 2: Log.Debug(DBG( "episode_name : %s" % (episode_name) ))
+                if DEBUG_LEVEL > 2: Log.Debug(DBG( "    episode_name : %s" % (episode_name) ))
 
-                episode_id_href = episode.xpath('./a/@href')[0]
-                # Impossible to get the regex to work so we just split on the / for now...
-                episode_id = int(episode_id_href.split('/')[3])
-                if DEBUG_LEVEL > 2: Log.Debug(DBG( "episode_id : %d" % (episode_id) ))
+                episode_url = episode.xpath('./a/@href')[0]
+                if DEBUG_LEVEL > 2: Log.Debug(DBG( "        episode_url : %s" % (episode_url) ))
 
                 #originally_available_at = Datetime.ParseDate(episode.xpath('./@data-aired'))
 
                 # For some extremely strange and annoying reason data-src can't be extracted with XPath!!!
                 # <div class="show-cover" data-src="https://timg.tfc.tv/xcms/episodeimages/129284/20170614-ikaw-487-1.jpg">
                 image_path = HTML.StringFromElement( episode.xpath('./a//div[@class="show-cover"]')[0] )
-                if DEBUG_LEVEL > 2: Log.Debug(DBG( "image_path : %s" % (image_path) ))
+                if DEBUG_LEVEL > 5: Log.Debug(DBG( "        image_path : %s" % (image_path) ))
 
                 m = RE_EPISODE_IMAGE_PATH.search( image_path )
                 if m:
                     episode_image = m.group('image_path')
                 else:
                     episode_image = None
-                if DEBUG_LEVEL > 2: Log.Debug(DBG( "episode_image : %s" % (episode_image) ))
+                if DEBUG_LEVEL > 2: Log.Debug(DBG( "        episode_image : %s" % (episode_image) ))
 
                 episode_blurb = episode.xpath('./@data-show-description')[0]
                 episode_blurb = String.DecodeHTMLEntities( episode_blurb ).strip()
-                if DEBUG_LEVEL > 2: Log.Debug(DBG( "episode_blurb : %s" % (episode_blurb) ))
+                if DEBUG_LEVEL > 2: Log.Debug(DBG( "        episode_blurb : %s..." % (episode_blurb[:50]) ))
 
                 oc.add( EpisodeObject(
-                         url                     = URL_PLEX_EPISODE.replace('{SHOW_ID}',str(show_id)).replace('{EPISODE_ID}',str(episode_id)),
+                         url                     = BASE_URL + episode_url,
                          title                   = episode_name,
                          thumb                   = episode_image,
                          source_title            = 'TFC.tv',
@@ -480,10 +518,11 @@ def Show( title, name, url, page=1, **kwargs ):
                          art                     = show_banner
                      ))
 
-            # Add more button if more pages
-            last_page = int(html.xpath('//ul[@id="pagination"]/li/a/text()')[-1])
-            if DEBUG_LEVEL > 2: Log.Debug(DBG( "Page %d (%d)" % (page, last_page) ))
+            # Add 'More...' button if more pages
             if page < last_page:
+                # Speed up loading by precaching next page
+                next_page_url = "%s/%d" % (url,page+1)
+                HTTP.PreCache( next_page_url )
                 oc.add( NextPageObject(key = Callback( Show, title = title, name = name, url = url, page = page + 1 ) ) )
 
             if len(oc) < 1:

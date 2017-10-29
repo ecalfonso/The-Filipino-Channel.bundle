@@ -16,6 +16,12 @@ try:
 except:
     DEBUG_LEVEL = 3
         
+try:
+    CACHE_TIME = int(Prefs['cache_time']) * CACHE_1HOUR
+except:
+    CACHE_TIME = 3 * CACHE_1HOUR
+
+
 #####################################################################################################
 def Login():
 
@@ -48,7 +54,7 @@ def Login():
 
         # Need to login
         Log.Info(DBG( "Need to login. URL = %s" % url ))
-        if DEBUG_LEVEL > 3: Log.Debug(DBG( "html = %s" % HTML.StringFromElement(html) ))
+        if DEBUG_LEVEL > 5: Log.Debug(DBG( "html = %s" % HTML.StringFromElement(html) ))
 
         COOKIES = ''
 
@@ -66,7 +72,7 @@ def Login():
         HTTP.Headers['Referer'] = URL_LOGIN
         html = HTML.ElementFromURL( URL_LOGIN, values = values, cacheTime=0 )
 
-        #Log.Debug( '# html = %s #' % HTML.StringFromElement(html) )
+        if DEBUG_LEVEL > 5: Log.Debug(DBG( "html = %s" % HTML.StringFromElement(html) ))
         
         url = html.xpath('//link[@rel="canonical"]/@href')[0]
         if DEBUG_LEVEL > 1: Log.Debug(DBG( "After login: url = %s" % url ))
@@ -109,7 +115,6 @@ def Logout():
 def DBG(message):
     
     return "## TFCTV LOG ## %s ##" % str(message)
-    #return (message)
 
     
 ####################################################################################################
