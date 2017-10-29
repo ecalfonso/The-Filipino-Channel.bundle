@@ -1,7 +1,6 @@
-# General
-USER_AGENT = 'Mozilla/5.0 (iPad: CPU OS 10_0 like Mac OS X; en-us) AppleWebKit/602.1.38 (KHTML, like Gecko) Version/10.0 Mobile/14A300 Safari/602.1'
+from TFC_Shared import *
 
-HTTP.Headers['User-Agent']      = USER_AGENT
+# General
 HTTP.Headers['Accept']          = '*/*'
 HTTP.Headers['Accept-Encoding'] = 'deflate, gzip'
 
@@ -12,13 +11,10 @@ LOGO     = 'TFC-logo.jpg'
 MORE     = 'more.png'
 
 # TFC URLs
-BASE_URL              = 'http://tfc.tv'
 URL_GET_VIDEO_DETAILS = BASE_URL + '/episode/details/{VIDEO_ID}'
 URL_GET_VIDEO         = BASE_URL + '/media/get'
-URL_LOGIN             = 'https://tfc.tv/user/login'
 
-
-# Consctructed URLs for URL service
+# Constructed URLs for URL service
 RE_PLEX_MOVIE_URL   = Regex( r"^tfctv://(?P<movie_id>\d+)$" )
 RE_PLEX_EPISODE_URL = Regex( r"^tfctv://(?P<show_id>\d+)/(?P<episode_id>\d+)$" )
 
@@ -31,8 +27,6 @@ RE_M3U8 = Regex( r"#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=(?P<bandwidth>\d+),R
 # Regex for getting URL domain name
 RE_DOMAIN = Regex(r"https?://(?P<domain>[^\/]+)")
 
-# Set default cache to 3 hours
-CACHE_TIME = 3 * CACHE_1HOUR
 
 JSON_HEADERS = dict()
 JSON_HEADERS['Accept']           = 'application/json, text/javascript, */*; q=0.01'
@@ -43,14 +37,16 @@ JSON_HEADERS['Content-Type']     = 'application/x-www-form-urlencoded; charset=U
 JSON_HEADERS['Host']             = 'tfc.tv'
 JSON_HEADERS['Origin']           = BASE_URL
 
-COOKIES = ''
-
-
 ####################################################################################################
 def MetadataObjectForURL( url ):
 
     #Log.Debug('# ServiceCode **********  MetadataObjectForURL  ********** %s', url )
 
+    try:
+        CACHE_TIME = int(Prefs['cache_time']) * CACHE_1HOUR
+    except:
+        CACHE_TIME = 3 * CACHE_1HOUR
+        
     try:
 
         movie = RE_PLEX_MOVIE_URL.match( url )
@@ -132,7 +128,6 @@ def MetadataObjectForURL( url ):
 def MediaObjectsForURL(url):
 
     #Log.Debug( '******************************* MediaObjectsForURL *******************************' )
-    #Log.Debug( "Client.Product: '%s', Client.Platform: '%s'" % (Client.Product,Client.Platform) )
     return [
 		MediaObject(
 			parts = [ PartObject(key=HTTPLiveStreamURL(Callback(PlayVideo, url=url)))],
@@ -149,8 +144,10 @@ def PlayVideo( url, **kwargs ):
 
     try:
 
-        #Log.Debug( '******************************* PlayVideo(%s) *******************************', url )
+        #Log.Debug(DBG( "******************************* PlayVideo(%s) *******************************" % url ))
 
+        if DEBUG_LEVEL > 1: Log.Debug(DBG( "Client.Product: '%s', Client.Platform: '%s'" % (Client.Product,Client.Platform) ))
+                                                                                                                                              
         movie = RE_PLEX_MOVIE_URL.match( url )
         if movie:
             #Log.Debug('# **********  RE_PLEX_MOVIE_URL  ********** ' )
@@ -169,24 +166,25 @@ def PlayVideo( url, **kwargs ):
 
             # Get the m3u8 playlist url
             playlist_url = GetPlaylistURL( video_id )
-            DebugLog( 2, '## playlist_url: %s ##', playlist_url )
 
             # Remove bandwidth limitation
             playlist_url = playlist_url.replace('&b=100-1000', '')
 
+            if DEBUG_LEVEL > 1: Log.Debug(DBG( "playlist_url: %s" % playlist_url ))
+
             # Read the playlist to get the akamai cookies!
             x = HTTP.Request( playlist_url, cacheTime = 0 )
-            DebugLog( 3, '## playlist: %s ##', x.content )
+            if DEBUG_LEVEL > 2: Log.Debug(DBG( "playlist: %s" % x.content ))
 
             # Extract and update cookies
             domain  = RE_DOMAIN.search(playlist_url).group('domain')
             cookies = '%s; path=/; domain=%s;' % (HTTP.CookiesForURL(playlist_url), domain)
-            DebugLog( 2, '## Final cookies for playlist_url: %s ##', cookies )
+            Log.Debug(DBG( "Final cookies for playlist_url: %s" % cookies ))
 
             return IndirectResponse( VideoClipObject, key = HTTPLiveStreamURL( url = playlist_url ), http_cookies = cookies )
 
     except:
-        Log.Error( '** PlayVideo(%s) FAILED! **', url )
+        Log.Error(DBG( "PlayVideo(%s) FAILED!" % url ))
 
     raise Ex.MediaNotAvailable
 
@@ -196,153 +194,52 @@ def GetPlaylistURL( video_id ):
 
     try:
 
-        #Log.Debug('##### GetPlaylistURL #####' )
+        if DEBUG_LEVEL > 1: Log.Debug(DBG( "GetPlaylistURL" ))
 
-        cookies = Login()
-
-        DebugLog( 3, '##### GetPlaylistURL::cookies: "%s" #####' % (cookies) )
-
-        url = URL_GET_VIDEO_DETAILS.replace('{VIDEO_ID}',str(video_id))
+        # Login
+        HTTP.Headers['Cookie'] = Login()
+        if DEBUG_LEVEL > 0: Log.Debug(DBG( "GetPlaylistURL::cookies: '%s'" % (HTTP.Headers['Cookie']) ))
 
         # Get episode details
-        HTTP.Headers['Cookie'] = cookies
+        url  = URL_GET_VIDEO_DETAILS.replace('{VIDEO_ID}',str(video_id))
         html = HTML.ElementFromURL( url )
 
         # Extract mediaToken
         amp_script = html.xpath('//script[contains(@src,"/Scripts/amp-")][contains(@src,".js?token=")]/@src')[1]
         mediaToken = amp_script.split('=')[1]
-        DebugLog( 3, '##### mediaToken: %s' % (mediaToken) )
+        if DEBUG_LEVEL > 2: Log.Debug(DBG( "mediaToken: %s" % (mediaToken) ))
 
         if mediaToken:
 
             JSON_HEADERS['mediaToken'] = mediaToken
             JSON_HEADERS['Referer']    = url
-            JSON_HEADERS['Cookie']     = cookies
+            JSON_HEADERS['Cookie']     = HTTP.Headers['Cookie']
 
-            if cookies:
+            if HTTP.Headers['Cookie']:
                 values = {'id': video_id, 'pv': 'False'}
             else:
                 values = {'id': video_id, 'pv': 'True'}
-            DebugLog( 3, '##### values: %s' % (values) )
+            if DEBUG_LEVEL > 2: Log.Debug(DBG( "values: %s" % (values) ))
 
             mediaInfo = JSON.ObjectFromURL( URL_GET_VIDEO, values = values, headers = JSON_HEADERS, cacheTime = 0 )
 
-            DebugLog( 1, '@#$ \n\nJSON:  %s\n\n ' % mediaInfo )
+            if DEBUG_LEVEL > 2: Log.Debug(DBG( "JSON:  %s" % mediaInfo ))
 
             if mediaInfo['StatusCode'] == 1 and mediaInfo['StatusMessage'] == 'OK':
                 #and mediaInfo['MediaReturnObj']['UserType'] == 'REGISTERED':
                 HTTP.Headers['mediaToken'] = mediaToken
                 return mediaInfo['MediaReturnObj']['uri']
             else:
-                Log.Error('### JSON ERROR %s:%s ###', mediaInfo['StatusCode'], mediaInfo['StatusMessage'] )
+                Log.Error(DBG( "JSON ERROR %s:%s" % (mediaInfo['StatusCode'],mediaInfo['StatusMessage']) ))
 
         else:
-            Log.Error('### mediaToken not found! ###' )
+            Log.Error(DBG( "mediaToken not found!" ))
 
 
     except:
         raise Ex.MediaNotAvailable
 
     raise Ex.MediaNotAvailable
-
-
-####################################################################################################
-def Login():
-
-    global COOKIES
-
-    #try:
-    #    if Prefs['preview']:
-    #        COOKIES = ''
-    #        return COOKIES
-    #except:
-    #    pass
-
-    try:
-
-        html = HTML.ElementFromURL( URL_LOGIN, cacheTime = 0 )
-
-        try:
-            url = html.xpath('//meta[@property="og:url"]/@content')[0]
-        except:
-            url = ''
-
-        if url == BASE_URL + '/' and COOKIES:
-            # No need to login
-            DebugLog( 2, '# Already logged in! # ' )
-            return COOKIES
-
-        # Need to login
-        DebugLog( 2, '# Need to login... #' )
-
-        COOKIES = ''
-
-        token = html.xpath('//input[@name="__RequestVerificationToken"]/@value')[0]
-        #Log.Debug( '## __RequestVerificationToken: %s ##' % str(token) )
-        values = {
-                    '__RequestVerificationToken': token,
-                    'EMail'                     : Prefs['email'],
-                    'Password'                  : Prefs['password']
-                 }
-
-        HTTP.Headers['Referer'] = URL_LOGIN
-        html = HTML.ElementFromURL( URL_LOGIN, values = values, cacheTime=0 )
-
-        url = html.xpath('//meta[@property="og:url"]/@content')[0]
-        if url == BASE_URL + '/':
-            DebugLog( 2, '# Login successful #' )
-
-            COOKIES = HTTP.CookiesForURL( URL_LOGIN )
-
-            # From https://github.com/benaranguren/nuodtayo.tv/blob/master/plugin.video.tfctv/default.py
-            cc_fingerprintid = Hash.MD5( Prefs['email'] )
-            COOKIES = '%s; cc_fingerprintid=%s;' % (COOKIES, cc_fingerprintid)
-
-            DebugLog( 3, '## COOKIES: %s ##' % str(COOKIES) )
-
-            return COOKIES
-        
-    except:
-        Log.Error( '## Failed to login!: #' )
-        
-    raise Ex.MediaNotAvailable
-
-
-
-####################################################################################################
-def DebugLog(level, *args):
-    try:
-        debug_level = int(Prefs['debug_level'])
-    except:
-        debug_level = 1
-
-    if level <= debug_level:
-        Log.Debug( *args )
-
-
-####################################################################################################
-def ExtractHtmlText(dict, key, fallback=''):
-    try:
-        text = String.DecodeHTMLEntities( dict[key] ).strip()
-    except: 
-        text = fallback
-        Log.Debug("# Using fallback text: '%s' instead of json['%s'] #" % (fallback,key) )
-    #Log.Debug("# ExtractHtmlText: json['%s'] = '%s' #" % (key,text) )
-    return text
-
-
-####################################################################################################
-def ExtractImageUrl(dict, key, fallback):
-    try:
-        url = str(dict[key])
-        url = url.replace(r"http://","")
-        url = "http://" + String.Quote(url)
-        url = Resource.ContentsOfURLWithFallback( url, fallback=fallback )
-    except: 
-        url = fallback
-        Log.Debug("# Using fallback image: '%s' instead of json['%s'] #" % (fallback,key) )
-    #Log.Debug("# ExtractImageUrl: json['%s'] = '%s'#" % (key,url) )
-    return url
 
         
 ## EOF ##
