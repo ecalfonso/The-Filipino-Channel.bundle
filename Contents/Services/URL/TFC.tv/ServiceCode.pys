@@ -17,21 +17,6 @@ URL_GET_VIDEO         = BASE_URL + '/media/get'
 # TFC id URL patterns 
 RE_VIDEO_ID = Regex(r"(?P<url>https?://tfc.tv/(episode|live)/details/(?P<video_id>\d+))(/?.*)")
 
-# URLs to determine video type
-# EPISODE: http://tfc.tv/episode/details/140208/the-good-son-october-20-2017
-# MOVIE  : http://tfc.tv/show/details/2988/raketeros
-# LIVE   : http://tfc.tv/live/details/41623/anc-live-streaming
-# <link rel="canonical" href="http://tfc.tv/live/details/41623/anc-live-streaming" />
-RE_TYPE_EPISODE = Regex(r"http://tfc.tv/episode/.*")
-RE_TYPE_MOVIE   = Regex(r"http://tfc.tv/show/.*")
-RE_TYPE_LIVE    = Regex(r"http://tfc.tv/live/.*")
-
-# Date and duration info
-#         Episode 20 of 27 | October 20, 2017 | 32m
-#          2017    |   1H 40M
-RE_INFO_EPISODE = Regex(r"Episode\s+(?P<index>\d+)/s+of\s+\d+\s+\|\s+(?P<date>[1-2][0-9][0-9][0-9])\s+\|\s+(?P<minutes>[0-5]?[0-9])m")
-RE_INFO_MOVIE   = Regex(r"(?P<date>[1-2][0-9][0-9][0-9])\s+\|\s+(?P<hours>[0-9])H (?P<minutes>[0-5][0-9])M")
-         
 # style="background-image:url(https://timg.tfc.tv/xcms/categoryimages/4046/I-AMERICA-HERO-WEB.jpg);">
 RE_MOVIE_BANNER_PATH = Regex(r'background-image:url\((?P<banner_path>[^"]+)\);')
 
@@ -61,135 +46,94 @@ def NormalizeURL( url ):
     if m:
         url = m.group('url')
         if DEBUG_LEVEL > 3: Log.Debug(DBG( "NormalizeURL, url_out = '%s'" % (url) ))
-    
+            
     return url
 
 ####################################################################################################
 def MetadataObjectForURL( url ):
 
     if DEBUG_LEVEL > 3: Log.Debug(DBG( "MetadataObjectForURL, url = '%s'" % (url) ))
-    
+        
     try:
     
         html = HTML.ElementFromURL( url, cacheTime = CACHE_TIME )
 
-        try:
-            info = html.xpath('//div[contains(@class,"hero-image-rating")]/text()')[0]
-            info = String.DecodeHTMLEntities( info ).strip()
-        except:
-            info = None
+        title  = html.xpath('//meta[@property="og:title"]/@content')[0]
+        title = String.DecodeHTMLEntities( title ).strip()
+        if DEBUG_LEVEL > 3: Log.Debug(DBG( "title : %s" % (title) ))
 
-        try:
-            title  = html.xpath('//meta[@property="og:title"]/@content')[0]
-            title = String.DecodeHTMLEntities( title ).strip()
-        except:
-            title = None
+        summary = html.xpath('//meta[@property="og:description"]/@content')[0]
+        summary = String.DecodeHTMLEntities( summary ).strip()
+        if DEBUG_LEVEL > 3: Log.Debug(DBG( "summary : %s" % (summary[:50]) ))
 
-        try:
-            summary = html.xpath('//meta[@property="og:description"]/@content')[0]
-            summary = String.DecodeHTMLEntities( summary ).strip()
-        except:
-            summary = None
-
-        try:
-            image = html.xpath('//meta[@property="og:image"]/@content')[0].strip()
-        except:
-            image = None
+        image = html.xpath('//meta[@property="og:image"]/@content')[0]
+        if DEBUG_LEVEL > 3: Log.Debug(DBG( "image : %s" % (image) ))
 
         try:
             banner_path = html.xpath('//div[@class="header-hero-image"]/@style')[0]
-            banner = RE_MOVIE_BANNER_PATH.search( banner_path ).group('banner_path')
         except:
+            banner_path = ''
+        m = RE_MOVIE_BANNER_PATH.search( banner_path )
+        if m:
+            banner = m.group('banner_path')
+        else:
             banner = None
+        if DEBUG_LEVEL > 3: Log.Debug(DBG( "banner : %s" % (banner) ))
 
-        try:
-            show = html.xpath('//h1[@class="topic-title-h1"]')[0]
-            show = String.DecodeHTMLEntities( show ).strip()
-        except:
-            show = None
-            
-        if DEBUG_LEVEL > 3: Log.Debug(DBG( "info     : %s" % (info) ))
-        if DEBUG_LEVEL > 3: Log.Debug(DBG( "title    : %s" % (title) ))
-        if DEBUG_LEVEL > 3: Log.Debug(DBG( "summary  : %s" % (summary[:50]) ))
-        if DEBUG_LEVEL > 3: Log.Debug(DBG( "image    : %s" % (image) ))
-        if DEBUG_LEVEL > 3: Log.Debug(DBG( "banner   : %s" % (banner) ))
-        if DEBUG_LEVEL > 3: Log.Debug(DBG( "show     : %s" % (show) ))
-                    
-        canonical_url = html.xpath('//link[@rel="canonical"]/@href')[0]
-        if DEBUG_LEVEL > 3: Log.Debug(DBG( "canonical_url : %s" % (canonical_url) ))
-
-        if RE_TYPE_EPISODE.match( canonical_url ):
+        '''
+        episode = RE_EPISODE_ID.match( url )
+        movie   = RE_MOVIE_ID.match( url )
+        live    = RE_EPISODE_ID.match( url )
         
-            m = RE_INFO_EPISODE.match( info )
-            if m:
-                index    = int(m.group('index'))
-                date     = Datetime.ParseDate(m.group('date'))
-                duration = 60 * 1000 * int(m.group('minutes'))
-            else:
-                index    = None
-                date     = None
-                duration = None
+        if episode:
 
-            if DEBUG_LEVEL > 3: Log.Debug(DBG( "index    : %s" % (index) ))
-            ####if DEBUG_LEVEL > 3: Log.Debug(DBG( "date     : %s" % (date.strftime('%Y-%m-%d')) ))
-            if DEBUG_LEVEL > 3: Log.Debug(DBG( "duration : %s" % (duration) ))
             if DEBUG_LEVEL > 3: Log.Debug(DBG( "RETURN EpisodeObject" ))
-                     
+
             return( EpisodeObject(
                              title                   = title,
                              thumb                   = image,
-                             source_title            = 'TFC.tv',
                              summary                 = summary,
-                             show                    = show,
+                             show                    = title,
                              #season                  = season,
-                             absolute_index           = index,
-                             duration                = duration,
-                             originally_available_at = date,
+                             #index                   = index,
+                             #duration                = duration,
+                             #originally_available_at = originally_available_at,
                              art                     = banner
                            ))
-                       
-        elif RE_TYPE_MOVIE.match( canonical_url ):
-        
-            m = RE_INFO_MOVIE.match( info )
-            if m:
-                date     = Datetime.ParseDate(m.group('date'))
-                duration = 60 * 1000 * (int(m.group('hours')) + 60 * int(m.group('minutes')))
-            else:
-                date     = None
-                duration = None
 
-            #if DEBUG_LEVEL > 3: Log.Debug(DBG( "date     : %s" % (date.strftime('%Y-%m-%d')) ))
-            if DEBUG_LEVEL > 3: Log.Debug(DBG( "duration : %d" % (duration) ))
+        elif movie:
+
             if DEBUG_LEVEL > 3: Log.Debug(DBG( "RETURN MovieObject" ))
 
             return( MovieObject(
                              title                   = title,
                              thumb                   = image,
-                             source_title            = 'TFC.tv',
                              summary                 = summary,
                              tagline                 = title,
-                             duration                = duration,
-                             originally_available_at = date,
+                             #duration                = duration,
+                             #year                    = originally_available_at,
                              art                     = banner
                            ))
-                                                      
-        elif RE_TYPE_LIVE.match( canonical_url ):
-    
-            if DEBUG_LEVEL > 3: Log.Debug(DBG( "RETURN VideoClipObject" ))
 
-            return( VideoClipObject(
-                             title                   = title,
-                             thumb                   = image,
-                             source_title            = 'TFC.tv',
-                             summary                 = summary,
-                             #duration                = duration,
-                             #originally_available_at = originally_available_at,
-                             art                     = banner
-                         ))
+        elif live:
+        '''
+        
+        if DEBUG_LEVEL > 3: Log.Debug(DBG( "RETURN VideoClipObject" ))
 
+        return( VideoClipObject(
+                     title                   = title,
+                     thumb                   = image,
+                     source_title            = 'TFC.tv',
+                     summary                 = summary,
+                     #duration                = duration,
+                     #originally_available_at = originally_available_at,
+                     art                     = banner
+                 ))
+                 
     except:
         Log.Error(DBG( "MetadataObjectForURL FAILED! url = '%s'" % (url) ))
-    
+        raise Ex.MediaNotAvailable
+
     raise Ex.MediaNotAvailable
 
 
@@ -257,8 +201,11 @@ def GetPlaylistURL( url ):
         html = HTML.ElementFromURL( url )
 
         # Extract video id from URL
-        video_id = RE_VIDEO_ID.match( url ).group('video_id')
-        if DEBUG_LEVEL > 3: Log.Debug(DBG( "RE_VIDEO_ID  video_id = %s" % (video_id) ))
+        m = RE_VIDEO_ID.match( url )
+        if m:
+            if DEBUG_LEVEL > 3: Log.Debug(DBG( "RE_VIDEO_ID" ))
+            video_id = m.group('video_id')
+            if DEBUG_LEVEL > 3: Log.Debug(DBG( "RE_VIDEO_ID  video_id = %s" % (video_id) ))
 
         # Extract mediaToken
         amp_script = html.xpath('//script[contains(@src,"/Scripts/amp-")][contains(@src,".js?token=")]/@src')[1]

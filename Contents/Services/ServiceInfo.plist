@@ -10,6 +10,7 @@
 			<array>
                 <string>^https?://tfc.tv/episode/details/[0-9]+/?</string>
                 <string>^https?://tfc.tv/live/details/[0-9]+/?</string>
+            
 			</array>
 		</dict>
 	</dict>
