@@ -1,6 +1,5 @@
 # General
 USER_AGENT = 'Mozilla/5.0 (iPad: CPU OS 10_0 like Mac OS X; en-us) AppleWebKit/602.1.38 (KHTML, like Gecko) Version/10.0 Mobile/14A300 Safari/602.1'
-#USER_AGENT = 'Mozilla/4,0'
 
 HTTP.Headers['User-Agent'] = USER_AGENT
 
@@ -19,7 +18,7 @@ except:
 try:
     CACHE_TIME = int(Prefs['cache_time']) * CACHE_1HOUR
 except:
-    CACHE_TIME = 3 * CACHE_1HOUR
+    CACHE_TIME = 0
 
 
 #####################################################################################################
@@ -60,8 +59,8 @@ def Login():
 
         token = html.xpath('//input[@name="__RequestVerificationToken"]/@value')[0]
         if DEBUG_LEVEL > 2: Log.Debug(DBG( "__RequestVerificationToken: %s" % str(token) ))
-        if DEBUG_LEVEL > 2: Log.Debug(DBG( "EMail: %s" % str(Prefs['email']) ))
-        ##if DEBUG_LEVEL > 2: Log.Debug(DBG( "Password: %s" % str(Prefs['password']) ))
+        if DEBUG_LEVEL > 8: Log.Debug(DBG( "EMail: %s" % str(Prefs['email']) ))
+        if DEBUG_LEVEL > 8: Log.Debug(DBG( "Password: %s" % str(Prefs['password']) ))
         values = {
                     '__RequestVerificationToken': token,
                     'EMail'                     : Prefs['email'],
@@ -83,7 +82,7 @@ def Login():
             COOKIES = HTTP.CookiesForURL( URL_LOGIN )
 
             # From https://github.com/benaranguren/nuodtayo.tv/blob/master/plugin.video.tfctv/default.py
-            cc_fingerprintid = Hash.MD5( Prefs['email'] )
+            cc_fingerprintid = Hash.MD5( Prefs['email'] + str(Util.RandomInt(0, 1000000)) )   
             COOKIES = '%s; cc_fingerprintid=%s;' % (COOKIES, cc_fingerprintid)
 
             if DEBUG_LEVEL > 3: Log.Debug(DBG( "COOKIES: %s" % str(COOKIES) ))

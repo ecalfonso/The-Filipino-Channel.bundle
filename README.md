@@ -10,6 +10,8 @@ and the code works for me but may not be written in an optimum way...
 
 Nevertheless, enjoy!
 
+UPDATED 2017-10-29  Version 1.0.5 - TFC changed the login procedure? (Again big thanks to @benaranguren and @cmik)
+
 UPDATED 2017-10-29  Version 1.0.4 - More improvements and optimizations.
 
 UPDATED 2017-10-29  Version 1.0.3 - Improved structure. Improved logging.
@@ -27,7 +29,6 @@ Horrible code right now but it seems to work!!!
 Without studying the Kodi TFC in [https://github.com/benaranguren/nuodtayo.tv/blob/master/plugin.video.tfctv/](https://github.com/benaranguren/nuodtayo.tv/blob/master/plugin.video.tfctv/ "https://github.com/benaranguren/nuodtayo.tv/blob/master/plugin.video.tfctv/")  and [https://github.com/cmik/cmik.xbmc/blob/master/plugin.video.tfctv/](https://github.com/cmik/cmik.xbmc/blob/master/plugin.video.tfctv/ "https://github.com/cmik/cmik.xbmc/blob/master/plugin.video.tfctv/") I would never been able to fix it...
 
 Big thanks to @benaranguren and @cmik
-
 
 
 

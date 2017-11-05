@@ -43,7 +43,7 @@ NUM_SHOWS_ON_PAGE = 12
 MAX_NUM_EPISODES  = 50
 
 
-VERSION = "1.0.4"
+VERSION = "1.0.5"
 CACHE_TIME  = 0
 DEBUG_LEVEL = 0
 
@@ -71,7 +71,7 @@ def SetPrefs():
     try:
         CACHE_TIME = int(Prefs['cache_time']) * CACHE_1HOUR
     except:
-        CACHE_TIME = 3 * CACHE_1HOUR
+        CACHE_TIME = 0
         
     try:
         DEBUG_LEVEL = int(Prefs['debug_level'])
@@ -95,9 +95,12 @@ def Start( **kwargs ):
     HTTP.Headers['Accept']          = '*/*'
     HTTP.Headers['Accept-Encoding'] = 'deflate, gzip'
     HTTP.CacheTime                  = CACHE_TIME
-
+    
     Logout()
 
+    # Speed up loading by precaching main page
+    HTTP.PreCache( BASE_URL )
+            
 ####################################################################################################
 @handler(PREFIX, TITLE, art=ART, thumb=LOGO)
 def MainMenu( **kwargs ):
@@ -176,7 +179,7 @@ def Category( title, name, cat_id, **kwargs ):
             if DEBUG_LEVEL > 0: Log.Debug(DBG( "    %s: %s" % (sub_category_name,sub_category_url) ))
 
             # Speed up loading by precaching sub category page
-            HTTP.PreCache( sub_category_url )
+            HTTP.PreCache( "%s/1" % (sub_category_url) )
             
             oc.add( DirectoryObject( key = Callback( SubCategory, title = name, name = sub_category_name, url = sub_category_url ), title = sub_category_name ) )
 
@@ -411,7 +414,7 @@ def Show( title, name, url, page=1, **kwargs ):
                      summary                 = live_blurb,
                      #duration                = duration,
                      #originally_available_at = originally_available_at,
-                     #art                     = live_banner
+                     art                     = live_banner
                  ))
 
             return oc
