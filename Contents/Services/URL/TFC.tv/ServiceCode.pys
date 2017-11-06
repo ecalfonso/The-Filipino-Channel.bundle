@@ -35,6 +35,9 @@ RE_INFO_MOVIE   = Regex(r"(?P<date>[1-2][0-9][0-9][0-9])\s+\|\s+(?P<hours>[0-9])
 # style="background-image:url(https://timg.tfc.tv/xcms/categoryimages/4046/I-AMERICA-HERO-WEB.jpg);">
 RE_MOVIE_BANNER_PATH = Regex(r'background-image:url\((?P<banner_path>[^"]+)\);')
 
+# Regex to extract fingerprint id from cookies
+RE_COOKIE_FID = Regex( r"; cc_fingerprintid=(?P<fid>[^;]+);" )
+
 # Regex for parsing m3u8 info
 RE_M3U8 = Regex( r"#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=(?P<bandwidth>\d+),RESOLUTION=(?P<width>\d+)x(?P<height>\d+),CODECS=\"(?P<codecs>[^\"]+\")\n(?P<url>https?://\S+)", Regex.MULTILINE )
 
@@ -261,35 +264,39 @@ def GetPlaylistURL( url ):
         if DEBUG_LEVEL > 3: Log.Debug(DBG( "RE_VIDEO_ID  video_id = %s" % (video_id) ))
 
         # Extract mediaToken
-        amp_script = html.xpath('//script[contains(@src,"/Scripts/amp-")][contains(@src,".js?token=")]/@src')[1]
-        mediaToken = amp_script.split('=')[1]
-        if DEBUG_LEVEL > 2: Log.Debug(DBG( "mediaToken: %s" % (mediaToken) ))
-
-        if mediaToken:
-
-            JSON_HEADERS['mediaToken'] = mediaToken
-            JSON_HEADERS['Referer']    = url
-            JSON_HEADERS['Cookie']     = HTTP.Headers['Cookie']
-
-            if HTTP.Headers['Cookie']:
-                values = {'id': video_id, 'pv': 'False'}
-            else:
-                values = {'id': video_id, 'pv': 'True'}
-            if DEBUG_LEVEL > 2: Log.Debug(DBG( "values: %s" % (values) ))
-
-            mediaInfo = JSON.ObjectFromURL( URL_GET_VIDEO, values = values, headers = JSON_HEADERS, cacheTime = 0 )
-
-            if DEBUG_LEVEL > 2: Log.Debug(DBG( "JSON:  %s" % mediaInfo ))
-
-            if mediaInfo['StatusCode'] == 1 and mediaInfo['StatusMessage'] == 'OK':
-                #and mediaInfo['MediaReturnObj']['UserType'] == 'REGISTERED':
-                HTTP.Headers['mediaToken'] = mediaToken
-                return mediaInfo['MediaReturnObj']['uri']
-            else:
-                Log.Error(DBG( "JSON ERROR %s:%s" % (mediaInfo['StatusCode'],mediaInfo['StatusMessage']) ))
-
-        else:
+        try:
+            amp_script = html.xpath('//script[contains(@src,"/Scripts/amp-")][contains(@src,".js?token=")]/@src')[1]
+            mediaToken = amp_script.split('=')[1]
+            if DEBUG_LEVEL > 2: Log.Debug(DBG( "mediaToken: %s" % (mediaToken) ))
+        except:
             Log.Error(DBG( "mediaToken not found!" ))
+            raise
+
+        # Exctract fingerprint ID
+        try:
+            fid = RE_COOKIE_FID.match( HTTP.Headers['Cookie'] ).group('fid')
+        except:
+            Log.Error(DBG( "Fingerprint ID not found!" ))
+            raise
+
+        # Build up POST request to get media info
+        JSON_HEADERS['mediaToken'] = mediaToken
+        JSON_HEADERS['Referer']    = url
+        JSON_HEADERS['Cookie']     = HTTP.Headers['Cookie']
+                                                                                                                                          
+        values = {'id': video_id, 'pv': 'False', 'sk': fid }
+        if DEBUG_LEVEL > 2: Log.Debug(DBG( "values: %s" % (values) ))
+
+        mediaInfo = JSON.ObjectFromURL( URL_GET_VIDEO, values = values, headers = JSON_HEADERS, cacheTime = 0 )
+
+        if DEBUG_LEVEL > 2: Log.Debug(DBG( "JSON:  %s" % mediaInfo ))
+
+        if mediaInfo['StatusCode'] == 1 and mediaInfo['StatusMessage'] == 'OK':
+            #and mediaInfo['MediaReturnObj']['UserType'] == 'REGISTERED':
+            HTTP.Headers['mediaToken'] = mediaToken
+            return mediaInfo['MediaReturnObj']['uri']
+        else:
+            Log.Error(DBG( "JSON ERROR %s:%s" % (mediaInfo['StatusCode'],mediaInfo['StatusMessage']) ))
 
 
     except:
