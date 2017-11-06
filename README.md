@@ -10,7 +10,9 @@ and the code works for me but may not be written in an optimum way...
 
 Nevertheless, enjoy!
 
-UPDATED 2017-10-29  Version 1.0.5 - TFC changed the login procedure? (Again big thanks to @benaranguren and @cmik)
+UPDATED 2017-11-06 Version 1.0.6 - Another fix with fingerprint id...  (once again thanks to @benaranguren and @cmik)
+
+UPDATED 2017-11-05 Version 1.0.5 - TFC changed the login procedure? (Again big thanks to @benaranguren and @cmik)
 
 UPDATED 2017-10-29  Version 1.0.4 - More improvements and optimizations.
 
