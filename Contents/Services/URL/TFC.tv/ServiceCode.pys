@@ -254,15 +254,19 @@ def GetPlaylistURL( url ):
 
         # Login
         HTTP.Headers['Cookie'] = Login()            
-        if DEBUG_LEVEL > 0: Log.Debug(DBG( "GetPlaylistURL::cookies: '%s'" % (HTTP.Headers['Cookie']) ))
+        if DEBUG_LEVEL > 0: Log.Debug(DBG( "HTTP.Headers['Cookie']: '%s'" % (HTTP.Headers['Cookie']) ))
         
         # Get episode/movie details
         html = HTML.ElementFromURL( url )
 
         # Extract video id from URL
-        video_id = RE_VIDEO_ID.match( url ).group('video_id')
-        if DEBUG_LEVEL > 3: Log.Debug(DBG( "RE_VIDEO_ID  video_id = %s" % (video_id) ))
-
+        try:
+            video_id = RE_VIDEO_ID.match( url ).group('video_id')
+            if DEBUG_LEVEL > 3: Log.Debug(DBG( "RE_VIDEO_ID  video_id = %s" % (video_id) ))
+        except:
+            Log.Error(DBG( "video_id not found!" ))
+            raise
+                                                                              
         # Extract mediaToken
         try:
             amp_script = html.xpath('//script[contains(@src,"/Scripts/amp-")][contains(@src,".js?token=")]/@src')[1]
@@ -274,7 +278,8 @@ def GetPlaylistURL( url ):
 
         # Exctract fingerprint ID
         try:
-            fid = RE_COOKIE_FID.match( HTTP.Headers['Cookie'] ).group('fid')
+            fid = RE_COOKIE_FID.search( HTTP.Headers['Cookie'] ).group('fid')
+            if DEBUG_LEVEL > 2: Log.Debug(DBG( "fingerprint ID: %s" % (fid) ))
         except:
             Log.Error(DBG( "Fingerprint ID not found!" ))
             raise
