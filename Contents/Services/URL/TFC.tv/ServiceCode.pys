@@ -225,6 +225,7 @@ def PlayVideo( url, **kwargs ):
 
         # Remove bandwidth limitation
         playlist_url = playlist_url.replace('&b=100-1000', '')
+        playlist_url = playlist_url + '&__b__=5000'
 
         if DEBUG_LEVEL > 1: Log.Debug(DBG( "playlist_url: %s" % playlist_url ))
 
