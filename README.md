@@ -10,6 +10,8 @@ and the code works for me but may not be written in an optimum way...
 
 Nevertheless, enjoy!
 
+UPDATED 2017-12-30 Version 1.0.7 - Added m3u8 url parameter to get higher resolution/bitrate streams  (many thanks to @sander1)
+
 UPDATED 2017-11-06 Version 1.0.6 - Another fix with fingerprint id...  (once again thanks to @benaranguren and @cmik)
 
 UPDATED 2017-11-05 Version 1.0.5 - TFC changed the login procedure? (Again big thanks to @benaranguren and @cmik)
