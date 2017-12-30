@@ -9,8 +9,8 @@ USER_AGENT = 'Mozilla/4,0'
 
 # Resources
 ART      = 'art-default.jpg'
-ICON     = 'icon-default.png'
-LOGO     = 'TFC-logo.jpg'
+ICON     = 'icon-default.jpg'
+LOGO     = 'icon-default.jpg'
 MORE     = 'more.png'
 
 
