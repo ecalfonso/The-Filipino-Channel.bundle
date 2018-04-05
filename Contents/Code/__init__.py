@@ -317,13 +317,13 @@ def SubCategory( title, name, url, page=1, **kwargs ):
                 show_url = BASE_URL + show_url
             if DEBUG_LEVEL > 1: Log.Debug(DBG( "    show_url   : %s" % (show_url) ))
 
-            show_image = show.xpath('./a/img/@src')[0]
+            show_image = show.xpath('./a/div/img/@src')[0]
             if DEBUG_LEVEL > 1: Log.Debug(DBG( "    show_image : %s" % (show_image) ))
 
             show_banner = show_image
             if DEBUG_LEVEL > 1: Log.Debug(DBG( "    show_banner: %s" % (show_banner) ))
 
-            show_blurb = show.xpath('./a/h3[@class="show-cover-thumb-aired-mobile"]/text()')[0]
+            show_blurb = show.xpath('./a/div/h3[@class="show-cover-thumb-aired-mobile"]/text()')[0]
             show_blurb = String.DecodeHTMLEntities( show_blurb ).strip()
             if DEBUG_LEVEL > 1: Log.Debug(DBG( "    show_blurb : %s" % (show_blurb) ))
 
